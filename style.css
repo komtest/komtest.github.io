@@ -1,0 +1,38 @@
+:root {
+  --bg-body: #f8f9fa;
+  --text-color: #212529;
+  --card-bg: #ffffff;
+}
+
+[data-bs-theme="dark"] {
+  --bg-body: #121212;
+  --text-color: #e9ecef;
+  --card-bg: #1e1e1e;
+}
+
+body {
+  background-color: var(--bg-body);
+  color: var(--text-color);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.card {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.table {
+  color: var(--text-color);
+}
+
+.table-light {
+  background-color: rgba(0,0,0,0.05) !important;
+}
+
+#reportePDF {
+  background: var(--card-bg);
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  color: var(--text-color);
+}

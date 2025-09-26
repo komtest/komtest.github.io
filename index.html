@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" id="htmlRoot">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bitácora Komtest Pro</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#0d6efd">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-light">
+  <!-- Modal de inicio -->
+  <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Bienvenido, Técnico</h5>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nombre completo</label>
+            <input type="text" class="form-control" id="nombreTecnicoInput" placeholder="Ej: Juan Pérez" required>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="darkModeToggle">
+            <label class="form-check-label" for="darkModeToggle">Modo oscuro</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnIniciar">Iniciar Sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container py-4" id="appContainer" style="display:none;">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h4 fw-bold text-primary">Bitácora de Actividades - Komtest</h1>
+        <p class="mb-0">Técnico: <strong id="nombreMostrado"></strong></p>
+      </div>
+      <button class="btn btn-outline-secondary btn-sm" id="btnRespaldo">📥 Respaldo JSON</button>
+    </header>
+
+    <section class="card mb-4 shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Registrar Actividad</h5>
+      </div>
+      <div class="card-body">
+        <form id="activityForm">
+          <input type="hidden" id="editId">
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="fecha" class="form-label">Fecha</label>
+              <input type="date" class="form-control" id="fecha" required>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="horaInicio" class="form-label">Hora Inicio</label>
+              <input type="time" class="form-control" id="horaInicio" required>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="horaFin" class="form-label">Hora Fin</label>
+              <input type="time" class="form-control" id="horaFin" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="tipo" class="form-label">Tipo de Actividad</label>
+            <select class="form-select" id="tipo" required>
+              <option value="">Seleccione...</option>
+              <option value="Soporte virtual">Soporte virtual para asistencia de fallas</option>
+              <option value="Soporte presencial">Soporte presencial para asistencia de fallas</option>
+              <option value="Reparación electrónica">Reparaciones electrónicas de dispositivos</option>
+              <option value="Asistencia técnica">Asistencia de información técnica</option>
+              <option value="Bombas e inyectores">Asistencia en bombas e inyectores (diesel/gasolina)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="descripcion" class="form-label">Descripción detallada</label>
+            <textarea class="form-control" id="descripcion" rows="3" placeholder="Ej: Diagnóstico remoto de falla en banco K-300..." required></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success" id="btnGuardar">Agregar Actividad</button>
+            <button type="button" class="btn btn-outline-secondary d-none" id="btnCancelarEdicion">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="card mb-4 shadow-sm">
+      <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0">Generar Informe</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label">Rango de Fechas</label>
+            <input type="date" class="form-control" id="fechaInicio">
+            <input type="date" class="form-control mt-2" id="fechaFin">
+          </div>
+          <div class="col-md-7 d-flex align-items-end">
+            <button id="btnGenerarPDF" class="btn btn-primary me-2">📄 Generar PDF</button>
+            <button id="btnVerReporte" class="btn btn-outline-secondary">👁️ Ver Reporte</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="reporteContainer" class="d-none">
+      <div id="reportePDF" class="card shadow-sm">
+        <div class="card-header bg-dark text-white text-center">
+          <h4>Informe de Actividades - Banco de Pruebas Komtest</h4>
+          <p id="rangoFechas" class="mb-0">Del <span id="fechaInicioReporte"></span> al <span id="fechaFinReporte"></span></p>
+        </div>
+        <div class="card-body">
+          <table class="table table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha y Horario</th>
+                <th>Tipo</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaActividades"></tbody>
+          </table>
+          <div class="mt-4 text-end">
+            <p>Firma del Técnico: _________________________</p>
+            <p>Nombre: <strong id="nombreEnReporte"></strong></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
