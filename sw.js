@@ -1,10 +1,12 @@
-const CACHE_NAME = 'bitacora-komtest-pro-v2';
+const CACHE_NAME = 'bitacora-komtest-pro-v3';
 const urlsToCache = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -15,7 +17,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // No cachear Firebase
   if (event.request.url.includes('firebaseio.com')) {
     return fetch(event.request);
   }
