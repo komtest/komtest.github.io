@@ -120,7 +120,6 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
   } else {
     database.ref('actividades').push(actividad)
       .then(() => {
-        // Notificación de éxito
         if ('serviceWorker' in navigator && Notification.permission === 'granted') {
           navigator.serviceWorker.ready.then(reg => {
             reg.showNotification('✅ Actividad guardada', {
@@ -329,7 +328,7 @@ document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
   renderActividades(inicio || null, fin || null);
 });
 
-// === PDF MEJORADO ===
+// === PDF CON MARCA DE AGUA ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -350,112 +349,131 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const darkColor = [33, 37, 41];
   const lightGray = [240, 240, 240];
 
-  // Logo
-  const logoUrl = '/logo-komtest.png';
-  const img = new Image();
-  img.src = logoUrl;
-  img.onload = () => {
+  // === CREAR MARCA DE AGUA ===
+  function agregarMarcaAgua() {
+    doc.saveGraphicsState();
+    doc.setTextColor(230, 230, 230);
+    doc.setFontSize(40);
+    doc.setFont("helvetica", "bold");
+    
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const centerX = pageWidth / 2;
+    const centerY = pageHeight / 2;
+    
+    doc.addImage(
+      createWatermarkCanvas("KOMTEST"),
+      'PNG',
+      centerX - 60,
+      centerY - 20,
+      120,
+      40
+    );
+    doc.restoreGraphicsState();
+  }
+
+  function createWatermarkCanvas(text) {
     const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 40;
     const ctx = canvas.getContext('2d');
-    canvas.width = 100;
-    canvas.height = 30;
-    ctx.drawImage(img, 0, 0, 100, 30);
-    const logoData = canvas.toDataURL('image/png');
-    
-    doc.addImage(logoData, 'PNG', 15, 12, 40, 12);
-    
-    // Línea divisoria
-    doc.setDrawColor(...primaryColor);
-    doc.setLineWidth(0.8);
-    doc.line(15, 32, 195, 32);
-    
-    doc.setFontSize(16);
-    doc.setTextColor(...darkColor);
-    doc.text('Informe de Actividades Técnicas', 105, 42, { align: 'center' });
-    doc.setFontSize(11);
-    doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
-    doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
-    
-    // Total de horas
-    const totalMinutos = calcularHoras(actividadesFiltradas);
-    const horas = Math.floor(totalMinutos / 60);
-    const minutos = Math.round(totalMinutos % 60);
-    doc.text(`Total de horas trabajadas: ${horas}h ${minutos}m`, 20, 64);
-    
-    // Tabla
-    const tableData = actividadesFiltradas.map(act => [
-      `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
-      act.tipo,
-      act.descripcion
-    ]);
-    
-    doc.autoTable({
-      startY: 72,
-      head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: [255, 255, 255],
-        fontSize: 10,
-        halign: 'center',
-        fontStyle: 'bold'
-      },
-      bodyStyles: {
-        fontSize: 9,
-        cellPadding: 2,
-        textColor: darkColor,
-        lineColor: lightGray,
-        lineWidth: 0.1
-      },
-      columnStyles: {
-        0: { cellWidth: 35, halign: 'center' },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 85, minCellHeight: 15 }
-      },
-      margin: { left: 15, right: 15 }
-    });
-    
-    // Pie de página
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      const footerY = doc.internal.pageSize.height - 10;
-      doc.setFontSize(9);
-      doc.setTextColor(150);
-      doc.text('Documento generado mediante Bitácora Komtest Pro • Confidencial', 105, footerY, { align: 'center' });
-    }
-    
-    // Firma
-    const finalY = doc.lastAutoTable.finalY + 15;
-    if (finalY < doc.internal.pageSize.height - 20) {
-      const fechaActual = new Date().toLocaleDateString('es-MX', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      doc.setFontSize(11);
-      doc.setTextColor(...darkColor);
-      doc.text(`Fecha: ${fechaActual}`, 20, finalY);
-      doc.text('Firma: _________________________', 20, finalY + 6);
-      doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
-    }
-    
-    const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
-    doc.save(nombreArchivo);
-  };
+    ctx.clearRect(0, 0, 120, 40);
+    ctx.fillStyle = 'rgba(13, 110, 253, 0.08)';
+    ctx.font = 'bold 36px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 60, 20);
+    return canvas.toDataURL('image/png');
+  }
+
+  // === ENCABEZADO ===
+  doc.setFontSize(22);
+  doc.setTextColor(...primaryColor);
+  doc.text('KOMTEST', 15, 20);
+  doc.setFontSize(10);
+  doc.setTextColor(...darkColor);
+  doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
   
-  img.onerror = () => {
-    // Si no hay logo, generar sin él
-    doc.setFontSize(22);
-    doc.setTextColor(...primaryColor);
-    doc.text('KOMTEST', 15, 20);
-    doc.setFontSize(10);
+  doc.setDrawColor(...primaryColor);
+  doc.setLineWidth(0.8);
+  doc.line(15, 32, 195, 32);
+  
+  doc.setFontSize(16);
+  doc.text('Informe de Actividades Técnicas', 105, 42, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
+  doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
+  
+  // Total de horas
+  const totalMinutos = calcularHoras(actividadesFiltradas);
+  const horas = Math.floor(totalMinutos / 60);
+  const minutos = Math.round(totalMinutos % 60);
+  doc.text(`Total de horas trabajadas: ${horas}h ${minutos}m`, 20, 64);
+  
+  // === TABLA ===
+  const tableData = actividadesFiltradas.map(act => [
+    `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
+    act.tipo,
+    act.descripcion
+  ]);
+  
+  doc.autoTable({
+    startY: 72,
+    head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: primaryColor,
+      textColor: [255, 255, 255],
+      fontSize: 10,
+      halign: 'center',
+      fontStyle: 'bold'
+    },
+    bodyStyles: {
+      fontSize: 9,
+      cellPadding: 2,
+      textColor: darkColor,
+      lineColor: lightGray,
+      lineWidth: 0.1
+    },
+    columnStyles: {
+      0: { cellWidth: 35, halign: 'center' },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 85, minCellHeight: 15 }
+    },
+    margin: { left: 15, right: 15 },
+    didDrawPage: function (data) {
+      agregarMarcaAgua();
+    }
+  });
+  
+  // === PIE DE PÁGINA ===
+  const finalPageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= finalPageCount; i++) {
+    doc.setPage(i);
+    const footerY = doc.internal.pageSize.height - 10;
+    doc.setFontSize(9);
+    doc.setTextColor(150);
+    doc.text('Documento generado mediante Bitácora Komtest Pro • Confidencial', 105, footerY, { align: 'center' });
+  }
+  
+  // === FIRMA ===
+  const finalY = doc.lastAutoTable.finalY + 15;
+  if (finalY < doc.internal.pageSize.height - 20) {
+    const fechaActual = new Date().toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    doc.setFontSize(11);
     doc.setTextColor(...darkColor);
-    doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
-    // ... resto del código sin logo
-    console.log("Logo no encontrado, generando sin logo");
-  };
+    doc.text(`Fecha: ${fechaActual}`, 20, finalY);
+    doc.text('Firma: _________________________', 20, finalY + 6);
+    doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
+  }
+  
+  const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+  doc.save(nombreArchivo);
 });
 
 // === EXCEL ===
