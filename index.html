@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
   <meta name="theme-color" content="#0d6efd">
   <meta name="mobile-web-app-capable" content="yes">
+  <link rel="preload" as="image" href="/logo-komtest.png">
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -47,7 +48,9 @@
         <h1 class="h4 fw-bold text-primary">Bitácora de Actividades - Komtest</h1>
         <p class="mb-0">Técnico: <strong id="nombreMostrado"></strong></p>
       </div>
-      <button class="btn btn-outline-secondary btn-sm" id="btnRespaldo">📥 Respaldo JSON</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="btnRespaldo">📥 Respaldo JSON</button>
+      </div>
     </header>
 
     <section class="card mb-4 shadow-sm">
@@ -105,14 +108,78 @@
             <input type="date" class="form-control" id="fechaInicio">
             <input type="date" class="form-control mt-2" id="fechaFin">
           </div>
-          <div class="col-md-7 d-flex align-items-end">
-            <button id="btnGenerarPDF" class="btn btn-primary me-2">📄 Generar PDF</button>
+          <div class="col-md-7 d-flex align-items-end gap-2">
+            <button id="btnGenerarPDF" class="btn btn-primary">📄 Generar PDF</button>
+            <button id="btnGenerarExcel" class="btn btn-success">📊 Exportar Excel</button>
             <button id="btnVerReporte" class="btn btn-outline-secondary">👁️ Ver Reporte</button>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Filtros avanzados -->
+    <section class="card mb-4 shadow-sm d-none" id="filtrosSection">
+      <div class="card-header bg-light">
+        <h6 class="mb-0">Filtros Avanzados</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <select class="form-select" id="filtroTipo">
+              <option value="">Todos los tipos</option>
+              <option value="Soporte virtual">Soporte virtual</option>
+              <option value="Soporte presencial">Soporte presencial</option>
+              <option value="Reparación electrónica">Reparación electrónica</option>
+              <option value="Asistencia técnica">Asistencia técnica</option>
+              <option value="Bombas e inyectores">Bombas e inyectores</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <input type="text" class="form-control" id="filtroDescripcion" placeholder="Buscar en descripción...">
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-outline-secondary w-100" id="btnLimpiarFiltros">Limpiar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estadísticas -->
+    <section class="card mb-4 shadow-sm d-none" id="estadisticasSection">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Estadísticas del Técnico</h5>
+      </div>
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col-md-3 mb-3">
+            <div class="stat-card">
+              <h3 id="totalActividades">0</h3>
+              <p class="text-muted">Actividades</p>
+            </div>
+          </div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-card">
+              <h3 id="totalHoras">0h 0m</h3>
+              <p class="text-muted">Horas trabajadas</p>
+            </div>
+          </div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-card">
+              <h3 id="promedioDiario">0h</h3>
+              <p class="text-muted">Promedio diario</p>
+            </div>
+          </div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-card">
+              <h3 id="tipoPrincipal">-</h3>
+              <p class="text-muted">Tipo principal</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabla de actividades -->
     <section id="reporteContainer" class="d-none">
       <div id="reportePDF" class="card shadow-sm">
         <div class="card-header bg-dark text-white text-center">
@@ -132,7 +199,8 @@
             <tbody id="tablaActividades"></tbody>
           </table>
           <div class="mt-4 text-end">
-            <p>Firma del Técnico: _________________________</p>
+            <p>Fecha: <span id="fechaFirma"></span></p>
+            <p>Firma: _________________________</p>
             <p>Nombre: <strong id="nombreEnReporte"></strong></p>
           </div>
         </div>
@@ -140,12 +208,18 @@
     </section>
   </div>
 
+  <footer class="text-center text-muted py-3 mt-4 border-top">
+    <small>© 2025 Komtest - Sistemas de Prueba Diesel y Gasolina | v2.1</small>
+  </footer>
+
+  <!-- Librerías -->
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
