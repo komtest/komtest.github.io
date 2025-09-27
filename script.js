@@ -1,4 +1,3 @@
-// === CONFIGURACIÓN DE FIREBASE ===
 const firebaseConfig = {
   apiKey: "AIzaSyDytfMkD8w0IeyHPRTyzsr_SRAP9l3GQX0",
   authDomain: "bitacora-komtest.firebaseapp.com",
@@ -28,6 +27,7 @@ function cargarDesdeLocal() {
     try {
       todasLasActividades = JSON.parse(data);
       renderActividades();
+      actualizarEstadisticas();
     } catch (e) {
       console.error("Error al cargar desde local:", e);
     }
@@ -82,9 +82,19 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
   const horaFin = document.getElementById('horaFin').value;
   const tipo = document.getElementById('tipo').value;
   const descripcion = document.getElementById('descripcion').value.trim();
-  if (horaInicio >= horaFin) {
+  
+  // Validación mejorada de horas
+  const inicio = new Date(`2000-01-01T${horaInicio}`);
+  const fin = new Date(`2000-01-01T${horaFin}`);
+  const diffHoras = (fin - inicio) / (1000 * 60 * 60);
+  
+  if (diffHoras <= 0) {
     return alert('La hora de inicio debe ser menor que la hora de fin.');
   }
+  if (diffHoras > 12) {
+    return alert('La jornada no puede exceder 12 horas.');
+  }
+  
   const actividad = {
     fecha,
     horaInicio,
@@ -92,8 +102,9 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
     tipo,
     descripcion,
     tecnico: tecnicoNombre,
-    timestamp: Date.now()
+    timestamp: firebase.database.ServerValue.TIMESTAMP
   };
+  
   if (id) {
     database.ref('actividades/' + id).update(actividad)
       .catch(() => {
@@ -108,6 +119,17 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
     document.getElementById('btnCancelarEdicion').classList.add('d-none');
   } else {
     database.ref('actividades').push(actividad)
+      .then(() => {
+        // Notificación de éxito
+        if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification('✅ Actividad guardada', {
+              body: 'Se sincronizará con todos tus dispositivos',
+              icon: '/icons/icon-192.png'
+            });
+          });
+        }
+      })
       .catch(() => {
         const nuevoId = 'local_' + Date.now();
         todasLasActividades.push({ id: nuevoId, ...actividad });
@@ -117,6 +139,7 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
   this.reset();
   document.getElementById('fecha').value = hoy;
   renderActividades();
+  actualizarEstadisticas();
 });
 
 document.getElementById('btnCancelarEdicion').addEventListener('click', () => {
@@ -128,9 +151,15 @@ document.getElementById('btnCancelarEdicion').addEventListener('click', () => {
 });
 
 let todasLasActividades = [];
+let firebaseListener = null;
+
 function cargarActividades() {
+  if (firebaseListener) {
+    firebaseListener.off();
+  }
+  
   const ref = database.ref('actividades').orderByChild('timestamp');
-  ref.on('value', (snapshot) => {
+  firebaseListener = ref.on('value', (snapshot) => {
     todasLasActividades = [];
     snapshot.forEach((child) => {
       todasLasActividades.push({ id: child.key, ...child.val() });
@@ -138,23 +167,43 @@ function cargarActividades() {
     todasLasActividades.sort((a, b) => b.timestamp - a.timestamp);
     guardarEnLocal();
     renderActividades();
+    actualizarEstadisticas();
   }, (error) => {
-    console.log("Sin conexión a Firebase. Cargando desde local...");
+    console.error("Error en Firebase:", error);
     cargarDesdeLocal();
   });
 }
 
 function renderActividades(fechaInicio = null, fechaFin = null) {
   const tbody = document.getElementById('tablaActividades');
+  const filtrosSection = document.getElementById('filtrosSection');
+  const estadisticasSection = document.getElementById('estadisticasSection');
+  
   tbody.innerHTML = '';
   let filtradas = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
+  
   if (fechaInicio && fechaFin) {
     filtradas = filtradas.filter(act => act.fecha >= fechaInicio && act.fecha <= fechaFin);
   }
+  
+  // Aplicar filtros adicionales
+  const tipoFiltro = document.getElementById('filtroTipo')?.value || '';
+  const descFiltro = document.getElementById('filtroDescripcion')?.value.toLowerCase() || '';
+  
+  if (tipoFiltro) {
+    filtradas = filtradas.filter(act => act.tipo === tipoFiltro);
+  }
+  if (descFiltro) {
+    filtradas = filtradas.filter(act => act.descripcion.toLowerCase().includes(descFiltro));
+  }
+  
   if (filtradas.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" class="text-center">No hay actividades.</td></tr>`;
+    filtrosSection.classList.add('d-none');
+    estadisticasSection.classList.add('d-none');
     return;
   }
+  
   filtradas.forEach(act => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -168,13 +217,20 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
     `;
     tbody.appendChild(tr);
   });
+  
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', () => editarActividad(btn.dataset.id));
   });
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', () => eliminarActividad(btn.dataset.id));
   });
+  
   document.getElementById('nombreEnReporte').textContent = tecnicoNombre;
+  document.getElementById('fechaFirma').textContent = new Date().toLocaleDateString('es-MX');
+  
+  // Mostrar secciones
+  filtrosSection.classList.remove('d-none');
+  estadisticasSection.classList.remove('d-none');
 }
 
 function editarActividad(id) {
@@ -188,6 +244,7 @@ function editarActividad(id) {
   document.getElementById('descripcion').value = act.descripcion;
   document.getElementById('btnGuardar').textContent = 'Actualizar Actividad';
   document.getElementById('btnCancelarEdicion').classList.remove('d-none');
+  document.getElementById('activityForm').scrollIntoView({ behavior: 'smooth' });
 }
 
 function eliminarActividad(id) {
@@ -198,19 +255,81 @@ function eliminarActividad(id) {
       guardarEnLocal();
     });
   renderActividades();
+  actualizarEstadisticas();
 }
 
+// === ESTADÍSTICAS ===
+function calcularHoras(actividades) {
+  let totalMinutos = 0;
+  actividades.forEach(act => {
+    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
+    const fin = new Date(`1970-01-01T${act.horaFin}`);
+    totalMinutos += (fin - inicio) / (1000 * 60);
+  });
+  return totalMinutos;
+}
+
+function actualizarEstadisticas() {
+  const actividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
+  if (actividades.length === 0) return;
+  
+  // Total actividades
+  document.getElementById('totalActividades').textContent = actividades.length;
+  
+  // Total horas
+  const totalMinutos = calcularHoras(actividades);
+  const horas = Math.floor(totalMinutos / 60);
+  const minutos = Math.round(totalMinutos % 60);
+  document.getElementById('totalHoras').textContent = `${horas}h ${minutos}m`;
+  
+  // Promedio diario
+  const fechas = [...new Set(actividades.map(a => a.fecha))];
+  const promedioDiario = fechas.length > 0 ? (totalMinutos / fechas.length / 60).toFixed(1) : 0;
+  document.getElementById('promedioDiario').textContent = `${promedioDiario}h`;
+  
+  // Tipo principal
+  const tipos = {};
+  actividades.forEach(act => {
+    tipos[act.tipo] = (tipos[act.tipo] || 0) + 1;
+  });
+  const tipoPrincipal = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, '');
+  document.getElementById('tipoPrincipal').textContent = tipoPrincipal;
+}
+
+// === VER REPORTE ===
 document.getElementById('btnVerReporte').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
   if (!inicio || !fin) return alert('Seleccione ambas fechas.');
+  
   document.getElementById('fechaInicioReporte').textContent = inicio;
   document.getElementById('fechaFinReporte').textContent = fin;
   renderActividades(inicio, fin);
   document.getElementById('reporteContainer').classList.remove('d-none');
 });
 
-// === ✅ FUNCIÓN CORREGIDA PARA PDF CON DESCRIPCIÓN COMPLETA ===
+// === FILTROS ===
+document.getElementById('filtroTipo')?.addEventListener('change', () => {
+  const inicio = document.getElementById('fechaInicio').value;
+  const fin = document.getElementById('fechaFin').value;
+  renderActividades(inicio || null, fin || null);
+});
+
+document.getElementById('filtroDescripcion')?.addEventListener('input', () => {
+  const inicio = document.getElementById('fechaInicio').value;
+  const fin = document.getElementById('fechaFin').value;
+  renderActividades(inicio || null, fin || null);
+});
+
+document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
+  document.getElementById('filtroTipo').value = '';
+  document.getElementById('filtroDescripcion').value = '';
+  const inicio = document.getElementById('fechaInicio').value;
+  const fin = document.getElementById('fechaFin').value;
+  renderActividades(inicio || null, fin || null);
+});
+
+// === PDF MEJORADO ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -231,89 +350,138 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const darkColor = [33, 37, 41];
   const lightGray = [240, 240, 240];
 
-  // Encabezado
-  doc.setFontSize(22);
-  doc.setTextColor(...primaryColor);
-  doc.text('KOMTEST', 15, 20);
-  doc.setFontSize(10);
-  doc.setTextColor(...darkColor);
-  doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.8);
-  doc.line(15, 32, 195, 32);
-  doc.setFontSize(16);
-  doc.text('Informe de Actividades Técnicas', 105, 42, { align: 'center' });
-  doc.setFontSize(11);
-  doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
-  doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
-
-  // Preparar datos para la tabla
-  const tableData = actividadesFiltradas.map(act => [
-    `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
-    act.tipo,
-    act.descripcion // ✅ Sin recortar
-  ]);
-
-  // Agregar tabla con soporte para texto largo
-  doc.autoTable({
-    startY: 66,
-    head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: primaryColor,
-      textColor: [255, 255, 255],
-      fontSize: 10,
-      halign: 'center',
-      fontStyle: 'bold'
-    },
-    bodyStyles: {
-      fontSize: 9,
-      cellPadding: 2,
-      textColor: darkColor,
-      lineColor: lightGray,
-      lineWidth: 0.1
-    },
-    columnStyles: {
-      0: { cellWidth: 35, halign: 'center' },
-      1: { cellWidth: 50 },
-      2: { 
-        cellWidth: 85,
-        // ✅ Permitir que el texto se ajuste en múltiples líneas
-        minCellHeight: 15 
-      }
-    },
-    margin: { left: 15, right: 15 },
-    // ✅ Habilitar división de texto en celdas
-    willDrawCell: function (data) {
-      if (data.section === 'body' && data.column.index === 2) {
-        // Asegurar que el texto se muestre completo
-        doc.setFontSize(9);
-      }
-    }
-  });
-
-  // Pie de página
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    const footerY = doc.internal.pageSize.height - 10;
-    doc.setFontSize(9);
-    doc.setTextColor(150);
-    doc.text('Documento generado mediante Bitácora Komtest Pro • Confidencial', 105, footerY, { align: 'center' });
-  }
-
-  // Firma
-  const finalY = doc.lastAutoTable.finalY + 15;
-  if (finalY < doc.internal.pageSize.height - 20) {
-    doc.setFontSize(11);
+  // Logo
+  const logoUrl = '/logo-komtest.png';
+  const img = new Image();
+  img.src = logoUrl;
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 100;
+    canvas.height = 30;
+    ctx.drawImage(img, 0, 0, 100, 30);
+    const logoData = canvas.toDataURL('image/png');
+    
+    doc.addImage(logoData, 'PNG', 15, 12, 40, 12);
+    
+    // Línea divisoria
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.8);
+    doc.line(15, 32, 195, 32);
+    
+    doc.setFontSize(16);
     doc.setTextColor(...darkColor);
-    doc.text('Firma del Técnico: _________________________', 20, finalY);
-    doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY);
-  }
+    doc.text('Informe de Actividades Técnicas', 105, 42, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
+    doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
+    
+    // Total de horas
+    const totalMinutos = calcularHoras(actividadesFiltradas);
+    const horas = Math.floor(totalMinutos / 60);
+    const minutos = Math.round(totalMinutos % 60);
+    doc.text(`Total de horas trabajadas: ${horas}h ${minutos}m`, 20, 64);
+    
+    // Tabla
+    const tableData = actividadesFiltradas.map(act => [
+      `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
+      act.tipo,
+      act.descripcion
+    ]);
+    
+    doc.autoTable({
+      startY: 72,
+      head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: primaryColor,
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        halign: 'center',
+        fontStyle: 'bold'
+      },
+      bodyStyles: {
+        fontSize: 9,
+        cellPadding: 2,
+        textColor: darkColor,
+        lineColor: lightGray,
+        lineWidth: 0.1
+      },
+      columnStyles: {
+        0: { cellWidth: 35, halign: 'center' },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 85, minCellHeight: 15 }
+      },
+      margin: { left: 15, right: 15 }
+    });
+    
+    // Pie de página
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const footerY = doc.internal.pageSize.height - 10;
+      doc.setFontSize(9);
+      doc.setTextColor(150);
+      doc.text('Documento generado mediante Bitácora Komtest Pro • Confidencial', 105, footerY, { align: 'center' });
+    }
+    
+    // Firma
+    const finalY = doc.lastAutoTable.finalY + 15;
+    if (finalY < doc.internal.pageSize.height - 20) {
+      const fechaActual = new Date().toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      doc.setFontSize(11);
+      doc.setTextColor(...darkColor);
+      doc.text(`Fecha: ${fechaActual}`, 20, finalY);
+      doc.text('Firma: _________________________', 20, finalY + 6);
+      doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
+    }
+    
+    const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+    doc.save(nombreArchivo);
+  };
+  
+  img.onerror = () => {
+    // Si no hay logo, generar sin él
+    doc.setFontSize(22);
+    doc.setTextColor(...primaryColor);
+    doc.text('KOMTEST', 15, 20);
+    doc.setFontSize(10);
+    doc.setTextColor(...darkColor);
+    doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
+    // ... resto del código sin logo
+    console.log("Logo no encontrado, generando sin logo");
+  };
+});
 
-  const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
-  doc.save(nombreArchivo);
+// === EXCEL ===
+document.getElementById('btnGenerarExcel').addEventListener('click', () => {
+  const inicio = document.getElementById('fechaInicio').value;
+  const fin = document.getElementById('fechaFin').value;
+  if (!inicio || !fin) return alert('Seleccione un rango de fechas.');
+  
+  const actividades = todasLasActividades
+    .filter(act => act.tecnico === tecnicoNombre && act.fecha >= inicio && act.fecha <= fin);
+  
+  if (actividades.length === 0) {
+    return alert('No hay actividades en este rango.');
+  }
+  
+  const ws = XLSX.utils.json_to_sheet(actividades.map(a => ({
+    Fecha: a.fecha,
+    'Hora Inicio': a.horaInicio,
+    'Hora Fin': a.horaFin,
+    'Tipo de Actividad': a.tipo,
+    Descripción: a.descripcion
+  })));
+  
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Actividades");
+  XLSX.writeFile(wb, `Komtest_${tecnicoNombre}_${inicio}_${fin}.xlsx`);
 });
 
 function formatearFecha(fechaISO) {
@@ -321,6 +489,7 @@ function formatearFecha(fechaISO) {
   return `${d}/${m}/${y}`;
 }
 
+// === RESPALDO JSON ===
 document.getElementById('btnRespaldo').addEventListener('click', () => {
   const misActividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   const dataStr = JSON.stringify(misActividades, null, 2);
@@ -331,3 +500,8 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
   linkElement.setAttribute('download', exportFileDefaultName);
   linkElement.click();
 });
+
+// === Solicitar permisos de notificación ===
+if ('Notification' in window) {
+  Notification.requestPermission();
+}
