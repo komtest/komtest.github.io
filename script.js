@@ -396,13 +396,14 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       return canvas.toDataURL('image/png');
     }
     
-    // === ENCABEZADO ===
+    // === ENCABEZADO ACTUALIZADO ===
     doc.setFontSize(22);
     doc.setTextColor(...primaryColor);
-    doc.text('DIESEL INJECTION SERVICE', 15, 20);
+    doc.text('DIESEL INJECTION SERVICES', 15, 20);
+    
     doc.setFontSize(10);
     doc.setTextColor(...darkColor);
-    doc.text('Especialistas en sistemas CRDI', 15, 26);
+    doc.text('Especialistas en Sistemas de Inyección CRDi', 15, 26);
     
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.8);
@@ -486,7 +487,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
     }
     
-    const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
     doc.save(nombreArchivo);
   };
   
@@ -497,10 +498,10 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     // Generar PDF sin marca de agua (usa la versión anterior)
     doc.setFontSize(22);
     doc.setTextColor(...primaryColor);
-    doc.text('KOMTEST', 15, 20);
+    doc.text('DIESEL INJECTION SERVICES', 15, 20);
     doc.setFontSize(10);
     doc.setTextColor(...darkColor);
-    doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
+    doc.text('Especialistas en Sistemas de Inyección CRDi', 15, 26);
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.8);
     doc.line(15, 32, 195, 32);
@@ -571,7 +572,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
     }
     
-    const nombreArchivo = `Komtest_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
     doc.save(nombreArchivo);
   };
 });
@@ -599,7 +600,7 @@ document.getElementById('btnGenerarExcel').addEventListener('click', () => {
   
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Actividades");
-  XLSX.writeFile(wb, `Komtest_${tecnicoNombre}_${inicio}_${fin}.xlsx`);
+  XLSX.writeFile(wb, `DieselInjection_${tecnicoNombre}_${inicio}_${fin}.xlsx`);
 });
 
 function formatearFecha(fechaISO) {
@@ -612,7 +613,7 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
   const misActividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   const dataStr = JSON.stringify(misActividades, null, 2);
   const dataUri = 'application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-  const exportFileDefaultName = `bitacora_komtest_${tecnicoNombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`;
+  const exportFileDefaultName = `bitacora_diesel_injection_${tecnicoNombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`;
   const linkElement = document.createElement('a');
   linkElement.setAttribute('href', dataUri);
   linkElement.setAttribute('download', exportFileDefaultName);
@@ -623,4 +624,3 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
 if ('Notification' in window) {
   Notification.requestPermission();
 }
-
