@@ -399,10 +399,10 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     // === ENCABEZADO ===
     doc.setFontSize(22);
     doc.setTextColor(...primaryColor);
-    doc.text('KOMTEST', 15, 20);
+    doc.text('DIESEL INJECTION SERVICE', 15, 20);
     doc.setFontSize(10);
     doc.setTextColor(...darkColor);
-    doc.text('Sistemas de Prueba Diesel y Gasolina', 15, 26);
+    doc.text('Especialistas en sistemas CRDI', 15, 26);
     
     doc.setDrawColor(...primaryColor);
     doc.setLineWidth(0.8);
@@ -623,3 +623,4 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
 if ('Notification' in window) {
   Notification.requestPermission();
 }
+
