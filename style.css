@@ -1,4 +1,9 @@
 :root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --dark-color: #212529;
+  --light-color: #f8f9fa;
   --bg-body: #f8f9fa;
   --text-color: #212529;
   --card-bg: #ffffff;
@@ -35,4 +40,32 @@ body {
   max-width: 900px;
   margin: 0 auto;
   color: var(--text-color);
+}
+
+.stat-card h3 {
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.stat-card p {
+  margin-bottom: 0;
+}
+
+/* Modo impresión */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd;
+  }
+  .btn, .modal, #appContainer > header, footer, #filtrosSection, #estadisticasSection {
+    display: none !important;
+  }
+  #reportePDF {
+    max-width: 100% !important;
+    padding: 10px !important;
+  }
 }
