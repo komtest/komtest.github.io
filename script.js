@@ -277,6 +277,7 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
     const esLaborable = esDiaLaborable(act.fecha);
     const badge = !esLaborable ? '<span class="badge bg-danger ms-1">EXTRAORDINARIO</span>' : '';
     
+    const tr = document.createElement('tr'); // ✅ CORREGIDO: variable declarada
     tr.innerHTML = `
       <td>${act.fecha}${badge}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
       <td>${act.tipo}</td>
