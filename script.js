@@ -41,25 +41,49 @@ function esDiaLaborable(fechaISO) {
   return true;
 }
 
-// Calcular horas normales y extras
-function calcularHorasConExtras(actividades) {
+// Calcular horas según normativa ecuatoriana
+function calcularHorasEcuador(actividades) {
   let horasNormales = 0;
-  let horasExtras = 0;
+  let horasSuplementarias = 0;
+  let horasExtraordinarias = 0;
   
+  // Agrupar actividades por fecha
+  const actividadesPorFecha = {};
   actividades.forEach(act => {
-    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
-    const fin = new Date(`1970-01-01T${act.horaFin}`);
-    const minutos = (fin - inicio) / (1000 * 60);
-    const horas = minutos / 60;
+    if (!actividadesPorFecha[act.fecha]) {
+      actividadesPorFecha[act.fecha] = [];
+    }
+    actividadesPorFecha[act.fecha].push(act);
+  });
+  
+  // Procesar cada fecha
+  Object.keys(actividadesPorFecha).forEach(fecha => {
+    const actividadesDelDia = actividadesPorFecha[fecha];
+    let totalHorasDia = 0;
     
-    if (esDiaLaborable(act.fecha)) {
-      horasNormales += horas;
+    // Calcular total de horas del día
+    actividadesDelDia.forEach(act => {
+      const inicio = new Date(`1970-01-01T${act.horaInicio}`);
+      const fin = new Date(`1970-01-01T${act.horaFin}`);
+      const minutos = (fin - inicio) / (1000 * 60);
+      totalHorasDia += minutos / 60;
+    });
+    
+    if (esDiaLaborable(fecha)) {
+      // Día laborable
+      if (totalHorasDia <= 8) {
+        horasNormales += totalHorasDia;
+      } else {
+        horasNormales += 8;
+        horasSuplementarias += (totalHorasDia - 8);
+      }
     } else {
-      horasExtras += horas;
+      // Fin de semana o feriado = horas extraordinarias
+      horasExtraordinarias += totalHorasDia;
     }
   });
   
-  return { horasNormales, horasExtras };
+  return { horasNormales, horasSuplementarias, horasExtraordinarias };
 }
 
 function guardarEnLocal() {
@@ -250,10 +274,8 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
   }
   
   filtradas.forEach(act => {
-    const tr = document.createElement('tr');
-    // Indicador visual para días no laborables
     const esLaborable = esDiaLaborable(act.fecha);
-    const badge = !esLaborable ? '<span class="badge bg-warning ms-1">EXTRA</span>' : '';
+    const badge = !esLaborable ? '<span class="badge bg-danger ms-1">EXTRAORDINARIO</span>' : '';
     
     tr.innerHTML = `
       <td>${act.fecha}${badge}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
@@ -307,7 +329,7 @@ function eliminarActividad(id) {
   actualizarEstadisticas();
 }
 
-// === ESTADÍSTICAS CON CUMPLIMIENTO ECUADOR ===
+// === ESTADÍSTICAS CON NORMATIVA ECUATORIANA CORREGIDA ===
 function actualizarEstadisticas() {
   const actividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   if (actividades.length === 0) return;
@@ -315,21 +337,27 @@ function actualizarEstadisticas() {
   // Total actividades
   document.getElementById('totalActividades').textContent = actividades.length;
   
-  // Calcular horas normales y extras
-  const { horasNormales, horasExtras } = calcularHorasConExtras(actividades);
+  // Calcular horas según normativa
+  const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividades);
   
   // Mostrar en estadísticas
-  document.getElementById('totalHoras').textContent = 
-    `${horasNormales.toFixed(1)}h normales + ${horasExtras.toFixed(1)}h extras`;
+  let textoHoras = `${horasNormales.toFixed(1)}h normales`;
+  if (horasSuplementarias > 0) {
+    textoHoras += ` + ${horasSuplementarias.toFixed(1)}h suplementarias`;
+  }
+  if (horasExtraordinarias > 0) {
+    textoHoras += ` + ${horasExtraordinarias.toFixed(1)}h extraordinarias`;
+  }
+  document.getElementById('totalHoras').textContent = textoHoras;
   
-  // Promedio diario (solo días laborables)
+  // Promedio diario (solo días laborables, máximo 8h por día)
   const diasLaborables = [...new Set(
     actividades
       .filter(act => esDiaLaborable(act.fecha))
       .map(a => a.fecha)
   )];
   const promedioDiario = diasLaborables.length > 0 ? 
-    (horasNormales / diasLaborables.length).toFixed(1) : 0;
+    Math.min(horasNormales / diasLaborables.length, 8).toFixed(1) : 0;
   document.getElementById('promedioDiario').textContent = `${promedioDiario}h`;
   
   // Tipo principal
@@ -345,7 +373,7 @@ function actualizarEstadisticas() {
   if (diasNoLaborables.length > 0) {
     const diasTexto = [...new Set(diasNoLaborables.map(d => d.fecha))].join(', ');
     document.getElementById('diasNoLaborables').textContent = 
-      `Días extras: ${diasTexto}`;
+      `Días extraordinarios: ${diasTexto}`;
     document.getElementById('diasNoLaborablesRow').classList.remove('d-none');
   } else {
     document.getElementById('diasNoLaborablesRow').classList.add('d-none');
@@ -385,7 +413,7 @@ document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
   renderActividades(inicio || null, fin || null);
 });
 
-// === PDF CON CUMPLIMIENTO ECUADOR ===
+// === PDF CON NORMATIVA ECUATORIANA CORREGIDA ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -472,11 +500,24 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    // Total de horas (normales y extras) - CUMPLIMIENTO ECUADOR
-    const { horasNormales, horasExtras } = calcularHorasConExtras(actividadesFiltradas);
-    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, 64);
-    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, 70);
-    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, 76);
+    // Total de horas según normativa ecuatoriana
+    const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividadesFiltradas);
+    let yPosition = 64;
+
+    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, yPosition);
+    yPosition += 6;
+
+    if (horasSuplementarias > 0) {
+      doc.text(`Horas suplementarias: ${horasSuplementarias.toFixed(1)}h`, 20, yPosition);
+      yPosition += 6;
+    }
+
+    if (horasExtraordinarias > 0) {
+      doc.text(`Horas extraordinarias: ${horasExtraordinarias.toFixed(1)}h`, 20, yPosition);
+      yPosition += 6;
+    }
+
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition + 2);
     
     // === AGREGAR MARCA DE AGUA A LA PRIMERA PÁGINA ===
     agregarMarcaAgua();
@@ -484,7 +525,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     // === TABLA ===
     const tableData = actividadesFiltradas.map(act => {
       const esLaborable = esDiaLaborable(act.fecha);
-      const tipoHorario = esLaborable ? 'Normal' : 'Extra';
+      const tipoHorario = !esLaborable ? 'Extraordinaria' : 'Normal/Suplementaria';
       return [
         `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
         act.tipo,
@@ -493,7 +534,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     });
     
     doc.autoTable({
-      startY: 82,
+      startY: yPosition + 12,
       head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
       body: tableData,
       theme: 'grid',
@@ -572,14 +613,27 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    const { horasNormales, horasExtras } = calcularHorasConExtras(actividadesFiltradas);
-    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, 64);
-    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, 70);
-    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, 76);
+    const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividadesFiltradas);
+    let yPosition = 64;
+
+    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, yPosition);
+    yPosition += 6;
+
+    if (horasSuplementarias > 0) {
+      doc.text(`Horas suplementarias: ${horasSuplementarias.toFixed(1)}h`, 20, yPosition);
+      yPosition += 6;
+    }
+
+    if (horasExtraordinarias > 0) {
+      doc.text(`Horas extraordinarias: ${horasExtraordinarias.toFixed(1)}h`, 20, yPosition);
+      yPosition += 6;
+    }
+
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition + 2);
     
     const tableData = actividadesFiltradas.map(act => {
       const esLaborable = esDiaLaborable(act.fecha);
-      const tipoHorario = esLaborable ? 'Normal' : 'Extra';
+      const tipoHorario = !esLaborable ? 'Extraordinaria' : 'Normal/Suplementaria';
       return [
         `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
         act.tipo,
@@ -588,7 +642,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     });
     
     doc.autoTable({
-      startY: 82,
+      startY: yPosition + 12,
       head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
       body: tableData,
       theme: 'grid',
@@ -642,7 +696,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   };
 });
 
-// === EXCEL ===
+// === EXCEL CON NORMATIVA ECUATORIANA ===
 document.getElementById('btnGenerarExcel').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -655,18 +709,62 @@ document.getElementById('btnGenerarExcel').addEventListener('click', () => {
     return alert('No hay actividades en este rango.');
   }
   
-  const ws = XLSX.utils.json_to_sheet(actividades.map(a => {
-    const esLaborable = esDiaLaborable(a.fecha);
-    return {
-      Fecha: a.fecha,
-      'Hora Inicio': a.horaInicio,
-      'Hora Fin': a.horaFin,
-      'Tipo de Actividad': a.tipo,
-      Descripción: a.descripcion,
-      'Tipo Horario': esLaborable ? 'Normal' : 'Extra'
-    };
-  }));
+  // Agrupar por fecha para calcular tipo de hora
+  const actividadesPorFecha = {};
+  actividades.forEach(act => {
+    if (!actividadesPorFecha[act.fecha]) {
+      actividadesPorFecha[act.fecha] = { actividades: [], totalHoras: 0 };
+    }
+    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
+    const fin = new Date(`1970-01-01T${act.horaFin}`);
+    const minutos = (fin - inicio) / (1000 * 60);
+    const horas = minutos / 60;
+    actividadesPorFecha[act.fecha].actividades.push({ ...act, horas });
+    actividadesPorFecha[act.fecha].totalHoras += horas;
+  });
   
+  const datosExcel = [];
+  Object.keys(actividadesPorFecha).forEach(fecha => {
+    const esLaborable = esDiaLaborable(fecha);
+    const totalHoras = actividadesPorFecha[fecha].totalHoras;
+    
+    actividadesPorFecha[fecha].actividades.forEach(act => {
+      let tipoHorario;
+      if (!esLaborable) {
+        tipoHorario = 'Extraordinaria';
+      } else if (totalHoras <= 8) {
+        tipoHorario = 'Normal';
+      } else {
+        // Verificar si esta actividad contribuye a horas suplementarias
+        const horasAcumuladas = actividadesPorFecha[fecha].actividades
+          .filter(a => a.timestamp <= act.timestamp)
+          .reduce((sum, a) => sum + a.horas, 0);
+        
+        if (horasAcumuladas <= 8) {
+          tipoHorario = 'Normal';
+        } else {
+          const horasAntes = horasAcumuladas - act.horas;
+          if (horasAntes >= 8) {
+            tipoHorario = 'Suplementaria';
+          } else {
+            tipoHorario = 'Mixta (Normal/Suplementaria)';
+          }
+        }
+      }
+      
+      datosExcel.push({
+        Fecha: act.fecha,
+        'Hora Inicio': act.horaInicio,
+        'Hora Fin': act.horaFin,
+        'Horas': act.horas.toFixed(2),
+        'Tipo de Actividad': act.tipo,
+        Descripción: act.descripcion,
+        'Tipo Horario': tipoHorario
+      });
+    });
+  });
+  
+  const ws = XLSX.utils.json_to_sheet(datosExcel);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Actividades");
   XLSX.writeFile(wb, `DieselInjection_${tecnicoNombre}_${inicio}_${fin}_ECUADOR.xlsx`);
