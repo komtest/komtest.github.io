@@ -14,7 +14,53 @@ const database = firebase.database();
 database.goOffline();
 database.goOnline();
 
+// === CONFIGURACIÓN DE FERIADOS ECUADOR 2025 ===
+const FERIADOS_ECUADOR = [
+  '2025-01-01', '2025-02-28', '2025-03-01', '2025-03-28',
+  '2025-05-01', '2025-05-24', '2025-08-10', '2025-10-09',
+  '2025-11-02', '2025-11-03', '2025-12-25'
+];
+
 let tecnicoNombre = '';
+
+// Verificar si una fecha es laborable (lunes-viernes y no feriado)
+function esDiaLaborable(fechaISO) {
+  const fecha = new Date(fechaISO);
+  const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+  
+  // Sábado (6) o Domingo (0) = no laborable
+  if (diaSemana === 0 || diaSemana === 6) {
+    return false;
+  }
+  
+  // Feriado = no laborable
+  if (FERIADOS_ECUADOR.includes(fechaISO)) {
+    return false;
+  }
+  
+  return true;
+}
+
+// Calcular horas normales y extras
+function calcularHorasConExtras(actividades) {
+  let horasNormales = 0;
+  let horasExtras = 0;
+  
+  actividades.forEach(act => {
+    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
+    const fin = new Date(`1970-01-01T${act.horaFin}`);
+    const minutos = (fin - inicio) / (1000 * 60);
+    const horas = minutos / 60;
+    
+    if (esDiaLaborable(act.fecha)) {
+      horasNormales += horas;
+    } else {
+      horasExtras += horas;
+    }
+  });
+  
+  return { horasNormales, horasExtras };
+}
 
 function guardarEnLocal() {
   const misActividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
@@ -205,8 +251,12 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
   
   filtradas.forEach(act => {
     const tr = document.createElement('tr');
+    // Indicador visual para días no laborables
+    const esLaborable = esDiaLaborable(act.fecha);
+    const badge = !esLaborable ? '<span class="badge bg-warning ms-1">EXTRA</span>' : '';
+    
     tr.innerHTML = `
-      <td>${act.fecha}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
+      <td>${act.fecha}${badge}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
       <td>${act.tipo}</td>
       <td>${act.descripcion}</td>
       <td>
@@ -257,17 +307,7 @@ function eliminarActividad(id) {
   actualizarEstadisticas();
 }
 
-// === ESTADÍSTICAS ===
-function calcularHoras(actividades) {
-  let totalMinutos = 0;
-  actividades.forEach(act => {
-    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
-    const fin = new Date(`1970-01-01T${act.horaFin}`);
-    totalMinutos += (fin - inicio) / (1000 * 60);
-  });
-  return totalMinutos;
-}
-
+// === ESTADÍSTICAS CON CUMPLIMIENTO ECUADOR ===
 function actualizarEstadisticas() {
   const actividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   if (actividades.length === 0) return;
@@ -275,15 +315,21 @@ function actualizarEstadisticas() {
   // Total actividades
   document.getElementById('totalActividades').textContent = actividades.length;
   
-  // Total horas
-  const totalMinutos = calcularHoras(actividades);
-  const horas = Math.floor(totalMinutos / 60);
-  const minutos = Math.round(totalMinutos % 60);
-  document.getElementById('totalHoras').textContent = `${horas}h ${minutos}m`;
+  // Calcular horas normales y extras
+  const { horasNormales, horasExtras } = calcularHorasConExtras(actividades);
   
-  // Promedio diario
-  const fechas = [...new Set(actividades.map(a => a.fecha))];
-  const promedioDiario = fechas.length > 0 ? (totalMinutos / fechas.length / 60).toFixed(1) : 0;
+  // Mostrar en estadísticas
+  document.getElementById('totalHoras').textContent = 
+    `${horasNormales.toFixed(1)}h normales + ${horasExtras.toFixed(1)}h extras`;
+  
+  // Promedio diario (solo días laborables)
+  const diasLaborables = [...new Set(
+    actividades
+      .filter(act => esDiaLaborable(act.fecha))
+      .map(a => a.fecha)
+  )];
+  const promedioDiario = diasLaborables.length > 0 ? 
+    (horasNormales / diasLaborables.length).toFixed(1) : 0;
   document.getElementById('promedioDiario').textContent = `${promedioDiario}h`;
   
   // Tipo principal
@@ -293,6 +339,17 @@ function actualizarEstadisticas() {
   });
   const tipoPrincipal = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, '');
   document.getElementById('tipoPrincipal').textContent = tipoPrincipal;
+  
+  // Mostrar días no laborables si existen
+  const diasNoLaborables = actividades.filter(act => !esDiaLaborable(act.fecha));
+  if (diasNoLaborables.length > 0) {
+    const diasTexto = [...new Set(diasNoLaborables.map(d => d.fecha))].join(', ');
+    document.getElementById('diasNoLaborables').textContent = 
+      `Días extras: ${diasTexto}`;
+    document.getElementById('diasNoLaborablesRow').classList.remove('d-none');
+  } else {
+    document.getElementById('diasNoLaborablesRow').classList.add('d-none');
+  }
 }
 
 // === VER REPORTE ===
@@ -328,7 +385,7 @@ document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
   renderActividades(inicio || null, fin || null);
 });
 
-// === PDF CON MARCA DE AGUA DE IMAGEN ===
+// === PDF CON CUMPLIMIENTO ECUADOR ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -415,24 +472,28 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    // Total de horas
-    const totalMinutos = calcularHoras(actividadesFiltradas);
-    const horas = Math.floor(totalMinutos / 60);
-    const minutos = Math.round(totalMinutos % 60);
-    doc.text(`Total de horas trabajadas: ${horas}h ${minutos}m`, 20, 64);
+    // Total de horas (normales y extras) - CUMPLIMIENTO ECUADOR
+    const { horasNormales, horasExtras } = calcularHorasConExtras(actividadesFiltradas);
+    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, 64);
+    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, 70);
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, 76);
     
     // === AGREGAR MARCA DE AGUA A LA PRIMERA PÁGINA ===
     agregarMarcaAgua();
     
     // === TABLA ===
-    const tableData = actividadesFiltradas.map(act => [
-      `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
-      act.tipo,
-      act.descripcion
-    ]);
+    const tableData = actividadesFiltradas.map(act => {
+      const esLaborable = esDiaLaborable(act.fecha);
+      const tipoHorario = esLaborable ? 'Normal' : 'Extra';
+      return [
+        `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
+        act.tipo,
+        `${act.descripcion}\n(${tipoHorario})`
+      ];
+    });
     
     doc.autoTable({
-      startY: 72,
+      startY: 82,
       head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
       body: tableData,
       theme: 'grid',
@@ -487,7 +548,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
     }
     
-    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}_ECUADOR.pdf`;
     doc.save(nombreArchivo);
   };
   
@@ -511,19 +572,23 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    const totalMinutos = calcularHoras(actividadesFiltradas);
-    const horas = Math.floor(totalMinutos / 60);
-    const minutos = Math.round(totalMinutos % 60);
-    doc.text(`Total de horas trabajadas: ${horas}h ${minutos}m`, 20, 64);
+    const { horasNormales, horasExtras } = calcularHorasConExtras(actividadesFiltradas);
+    doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, 64);
+    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, 70);
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, 76);
     
-    const tableData = actividadesFiltradas.map(act => [
-      `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
-      act.tipo,
-      act.descripcion
-    ]);
+    const tableData = actividadesFiltradas.map(act => {
+      const esLaborable = esDiaLaborable(act.fecha);
+      const tipoHorario = esLaborable ? 'Normal' : 'Extra';
+      return [
+        `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
+        act.tipo,
+        `${act.descripcion}\n(${tipoHorario})`
+      ];
+    });
     
     doc.autoTable({
-      startY: 72,
+      startY: 82,
       head: [['Fecha y Horario', 'Tipo de Actividad', 'Descripción']],
       body: tableData,
       theme: 'grid',
@@ -572,7 +637,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       doc.text(`Nombre: ${tecnicoNombre}`, 140, finalY + 6);
     }
     
-    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}.pdf`;
+    const nombreArchivo = `DieselInjection_Informe_${tecnicoNombre.replace(/\s+/g, '_')}_${inicio.replaceAll('-', '')}_${fin.replaceAll('-', '')}_ECUADOR.pdf`;
     doc.save(nombreArchivo);
   };
 });
@@ -590,17 +655,21 @@ document.getElementById('btnGenerarExcel').addEventListener('click', () => {
     return alert('No hay actividades en este rango.');
   }
   
-  const ws = XLSX.utils.json_to_sheet(actividades.map(a => ({
-    Fecha: a.fecha,
-    'Hora Inicio': a.horaInicio,
-    'Hora Fin': a.horaFin,
-    'Tipo de Actividad': a.tipo,
-    Descripción: a.descripcion
-  })));
+  const ws = XLSX.utils.json_to_sheet(actividades.map(a => {
+    const esLaborable = esDiaLaborable(a.fecha);
+    return {
+      Fecha: a.fecha,
+      'Hora Inicio': a.horaInicio,
+      'Hora Fin': a.horaFin,
+      'Tipo de Actividad': a.tipo,
+      Descripción: a.descripcion,
+      'Tipo Horario': esLaborable ? 'Normal' : 'Extra'
+    };
+  }));
   
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Actividades");
-  XLSX.writeFile(wb, `DieselInjection_${tecnicoNombre}_${inicio}_${fin}.xlsx`);
+  XLSX.writeFile(wb, `DieselInjection_${tecnicoNombre}_${inicio}_${fin}_ECUADOR.xlsx`);
 });
 
 function formatearFecha(fechaISO) {
@@ -613,7 +682,7 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
   const misActividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   const dataStr = JSON.stringify(misActividades, null, 2);
   const dataUri = 'application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-  const exportFileDefaultName = `bitacora_diesel_injection_${tecnicoNombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`;
+  const exportFileDefaultName = `bitacora_diesel_injection_${tecnicoNombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}_ECUADOR.json`;
   const linkElement = document.createElement('a');
   linkElement.setAttribute('href', dataUri);
   linkElement.setAttribute('download', exportFileDefaultName);
