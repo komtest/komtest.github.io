@@ -27,7 +27,7 @@
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Nombre completo</label>
+            <label for="nombreTecnicoInput" class="form-label">Nombre completo</label>
             <input type="text" class="form-control" id="nombreTecnicoInput" placeholder="Ej: Juan Pérez" required>
           </div>
           <div class="form-check form-switch">
@@ -104,7 +104,7 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-5">
-            <label class="form-label">Rango de Fechas</label>
+            <label for="fechaInicio" class="form-label">Rango de Fechas</label>
             <input type="date" class="form-control" id="fechaInicio">
             <input type="date" class="form-control mt-2" id="fechaFin">
           </div>
@@ -125,6 +125,7 @@
       <div class="card-body">
         <div class="row g-2">
           <div class="col-md-4">
+            <label for="filtroTipo" class="form-label">Tipo de Actividad</label>
             <select class="form-select" id="filtroTipo">
               <option value="">Todos los tipos</option>
               <option value="Soporte virtual">Soporte virtual</option>
@@ -135,10 +136,11 @@
             </select>
           </div>
           <div class="col-md-5">
-            <input type="text" class="form-control" id="filtroDescripcion" placeholder="Buscar en descripción...">
+            <label for="filtroDescripcion" class="form-label">Buscar en descripción</label>
+            <input type="text" class="form-control" id="filtroDescripcion" placeholder="Palabras clave...">
           </div>
           <div class="col-md-3">
-            <button class="btn btn-outline-secondary w-100" id="btnLimpiarFiltros">Limpiar</button>
+            <button class="btn btn-outline-secondary w-100 mt-4" id="btnLimpiarFiltros">Limpiar</button>
           </div>
         </div>
       </div>
@@ -147,7 +149,7 @@
     <!-- Estadísticas -->
     <section class="card mb-4 shadow-sm d-none" id="estadisticasSection">
       <div class="card-header bg-dark text-white">
-        <h5 class="mb-0">Estadísticas del Técnico</h5>
+        <h5 class="mb-0">Estadísticas del Técnico (Ecuador - Ministerio de Trabajo)</h5>
       </div>
       <div class="card-body">
         <div class="row text-center">
@@ -157,22 +159,29 @@
               <p class="text-muted">Actividades</p>
             </div>
           </div>
-          <div class="col-md-3 mb-3">
+          <div class="col-md-4 mb-3">
             <div class="stat-card">
-              <h3 id="totalHoras">0h 0m</h3>
-              <p class="text-muted">Horas trabajadas</p>
+              <h3 id="totalHoras">0h</h3>
+              <p class="text-muted">Horas (Normales + Suplementarias + Extraordinarias)</p>
             </div>
           </div>
           <div class="col-md-3 mb-3">
             <div class="stat-card">
               <h3 id="promedioDiario">0h</h3>
-              <p class="text-muted">Promedio diario</p>
+              <p class="text-muted">Promedio diario laborable</p>
             </div>
           </div>
-          <div class="col-md-3 mb-3">
+          <div class="col-md-2 mb-3">
             <div class="stat-card">
               <h3 id="tipoPrincipal">-</h3>
               <p class="text-muted">Tipo principal</p>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-3 d-none" id="diasNoLaborablesRow">
+          <div class="col-12">
+            <div class="alert alert-warning alert-sm mb-0">
+              <strong id="diasNoLaborables"></strong>
             </div>
           </div>
         </div>
