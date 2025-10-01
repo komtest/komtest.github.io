@@ -23,13 +23,13 @@ const FERIADOS_ECUADOR = [
 
 let tecnicoNombre = '';
 
-// Verificar si una fecha es laborable (lunes-viernes y no feriado)
+// Verificar si una fecha es día laborable (lunes a sábado, no feriado)
 function esDiaLaborable(fechaISO) {
   const fecha = new Date(fechaISO);
   const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
   
-  // Sábado (6) o Domingo (0) = no laborable
-  if (diaSemana === 0 || diaSemana === 6) {
+  // Domingo (0) = no laborable
+  if (diaSemana === 0) {
     return false;
   }
   
@@ -41,11 +41,27 @@ function esDiaLaborable(fechaISO) {
   return true;
 }
 
-// Calcular horas según normativa ecuatoriana
+// Obtener el tipo de día laborable
+function getTipoDia(fechaISO) {
+  const fecha = new Date(fechaISO);
+  const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+  
+  if (diaSemana === 6) {
+    return 'sabado'; // Sábado
+  }
+  return 'lunes-viernes'; // Lunes a viernes
+}
+
+// Convertir hora a minutos desde medianoche
+function horaAMinutos(horaStr) {
+  const [horas, minutos] = horaStr.split(':').map(Number);
+  return horas * 60 + minutos;
+}
+
+// Calcular horas según jornada laboral ecuatoriana
 function calcularHorasEcuador(actividades) {
   let horasNormales = 0;
-  let horasSuplementarias = 0;
-  let horasExtraordinarias = 0;
+  let horasExtras = 0;
   
   // Agrupar actividades por fecha
   const actividadesPorFecha = {};
@@ -59,31 +75,87 @@ function calcularHorasEcuador(actividades) {
   // Procesar cada fecha
   Object.keys(actividadesPorFecha).forEach(fecha => {
     const actividadesDelDia = actividadesPorFecha[fecha];
-    let totalHorasDia = 0;
+    const esLaborable = esDiaLaborable(fecha);
+    const tipoDia = getTipoDia(fecha);
     
-    // Calcular total de horas del día
-    actividadesDelDia.forEach(act => {
-      const inicio = new Date(`1970-01-01T${act.horaInicio}`);
-      const fin = new Date(`1970-01-01T${act.horaFin}`);
-      const minutos = (fin - inicio) / (1000 * 60);
-      totalHorasDia += minutos / 60;
-    });
-    
-    if (esDiaLaborable(fecha)) {
-      // Día laborable
-      if (totalHorasDia <= 8) {
-        horasNormales += totalHorasDia;
-      } else {
-        horasNormales += 8;
-        horasSuplementarias += (totalHorasDia - 8);
-      }
+    if (!esLaborable) {
+      // Domingo o feriado = todo es hora extra
+      actividadesDelDia.forEach(act => {
+        const inicio = horaAMinutos(act.horaInicio);
+        const fin = horaAMinutos(act.horaFin);
+        const minutos = fin - inicio;
+        horasExtras += minutos / 60;
+      });
     } else {
-      // Fin de semana o feriado = horas extraordinarias
-      horasExtraordinarias += totalHorasDia;
+      // Día laborable - calcular horas normales y extras
+      let minutosNormales = 0;
+      let minutosExtras = 0;
+      
+      actividadesDelDia.forEach(act => {
+        const inicioAct = horaAMinutos(act.horaInicio);
+        const finAct = horaAMinutos(act.horaFin);
+        
+        if (tipoDia === 'lunes-viernes') {
+          // Lunes a viernes: 9:00-12:00 y 13:00-18:00 (8 horas normales)
+          const periodosNormales = [
+            { inicio: 9 * 60, fin: 12 * 60 },    // 9:00-12:00
+            { inicio: 13 * 60, fin: 18 * 60 }    // 13:00-18:00
+          ];
+          
+          // Calcular minutos normales y extras para esta actividad
+          let actMinutosNormales = 0;
+          let actMinutosExtras = finAct - inicioAct;
+          
+          periodosNormales.forEach(periodo => {
+            const overlapInicio = Math.max(inicioAct, periodo.inicio);
+            const overlapFin = Math.min(finAct, periodo.fin);
+            if (overlapFin > overlapInicio) {
+              const overlapMinutos = overlapFin - overlapInicio;
+              actMinutosNormales += overlapMinutos;
+              actMinutosExtras -= overlapMinutos;
+            }
+          });
+          
+          minutosNormales += actMinutosNormales;
+          minutosExtras += Math.max(0, actMinutosExtras);
+        } else {
+          // Sábado: 9:00-13:00 (4 horas normales)
+          const inicioNormal = 9 * 60; // 9:00 AM
+          const finNormal = 13 * 60;   // 1:00 PM
+          
+          const overlapInicio = Math.max(inicioAct, inicioNormal);
+          const overlapFin = Math.min(finAct, finNormal);
+          const minutosNormalesAct = Math.max(0, overlapFin - overlapInicio);
+          const minutosExtrasAct = (finAct - inicioAct) - minutosNormalesAct;
+          
+          minutosNormales += minutosNormalesAct;
+          minutosExtras += Math.max(0, minutosExtrasAct);
+        }
+      });
+      
+      // Aplicar límites máximos
+      if (tipoDia === 'lunes-viernes') {
+        // Máximo 8 horas normales por día
+        const maxNormales = 8 * 60;
+        if (minutosNormales > maxNormales) {
+          minutosExtras += minutosNormales - maxNormales;
+          minutosNormales = maxNormales;
+        }
+      } else {
+        // Sábado: máximo 4 horas normales
+        const maxNormales = 4 * 60;
+        if (minutosNormales > maxNormales) {
+          minutosExtras += minutosNormales - maxNormales;
+          minutosNormales = maxNormales;
+        }
+      }
+      
+      horasNormales += minutosNormales / 60;
+      horasExtras += minutosExtras / 60;
     }
   });
   
-  return { horasNormales, horasSuplementarias, horasExtraordinarias };
+  return { horasNormales, horasExtras };
 }
 
 function guardarEnLocal() {
@@ -275,9 +347,9 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
   
   filtradas.forEach(act => {
     const esLaborable = esDiaLaborable(act.fecha);
-    const badge = !esLaborable ? '<span class="badge bg-danger ms-1">EXTRAORDINARIO</span>' : '';
+    const badge = !esLaborable ? '<span class="badge bg-danger ms-1">EXTRA</span>' : '';
     
-    const tr = document.createElement('tr'); // ✅ CORREGIDO: variable declarada
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${act.fecha}${badge}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
       <td>${act.tipo}</td>
@@ -330,7 +402,7 @@ function eliminarActividad(id) {
   actualizarEstadisticas();
 }
 
-// === ESTADÍSTICAS CON NORMATIVA ECUATORIANA CORREGIDA ===
+// === ESTADÍSTICAS ACTUALIZADAS ===
 function actualizarEstadisticas() {
   const actividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   if (actividades.length === 0) return;
@@ -339,26 +411,20 @@ function actualizarEstadisticas() {
   document.getElementById('totalActividades').textContent = actividades.length;
   
   // Calcular horas según normativa
-  const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividades);
+  const { horasNormales, horasExtras } = calcularHorasEcuador(actividades);
   
   // Mostrar en estadísticas
-  let textoHoras = `${horasNormales.toFixed(1)}h normales`;
-  if (horasSuplementarias > 0) {
-    textoHoras += ` + ${horasSuplementarias.toFixed(1)}h suplementarias`;
-  }
-  if (horasExtraordinarias > 0) {
-    textoHoras += ` + ${horasExtraordinarias.toFixed(1)}h extraordinarias`;
-  }
-  document.getElementById('totalHoras').textContent = textoHoras;
+  document.getElementById('totalHoras').textContent = 
+    `${horasNormales.toFixed(1)}h normales + ${horasExtras.toFixed(1)}h extras`;
   
-  // Promedio diario (solo días laborables, máximo 8h por día)
+  // Promedio diario laborable
   const diasLaborables = [...new Set(
     actividades
       .filter(act => esDiaLaborable(act.fecha))
       .map(a => a.fecha)
   )];
   const promedioDiario = diasLaborables.length > 0 ? 
-    Math.min(horasNormales / diasLaborables.length, 8).toFixed(1) : 0;
+    (horasNormales / diasLaborables.length).toFixed(1) : 0;
   document.getElementById('promedioDiario').textContent = `${promedioDiario}h`;
   
   // Tipo principal
@@ -374,7 +440,7 @@ function actualizarEstadisticas() {
   if (diasNoLaborables.length > 0) {
     const diasTexto = [...new Set(diasNoLaborables.map(d => d.fecha))].join(', ');
     document.getElementById('diasNoLaborables').textContent = 
-      `Días extraordinarios: ${diasTexto}`;
+      `Días no laborables: ${diasTexto}`;
     document.getElementById('diasNoLaborablesRow').classList.remove('d-none');
   } else {
     document.getElementById('diasNoLaborablesRow').classList.add('d-none');
@@ -414,7 +480,7 @@ document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
   renderActividades(inicio || null, fin || null);
 });
 
-// === PDF CON NORMATIVA ECUATORIANA CORREGIDA ===
+// === PDF CON JORNADA LABORAL ECUATORIANA ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -501,24 +567,17 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    // Total de horas según normativa ecuatoriana
-    const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividadesFiltradas);
+    // Total de horas según normativa ecuatoriana actualizada
+    const { horasNormales, horasExtras } = calcularHorasEcuador(actividadesFiltradas);
     let yPosition = 64;
 
     doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, yPosition);
     yPosition += 6;
-
-    if (horasSuplementarias > 0) {
-      doc.text(`Horas suplementarias: ${horasSuplementarias.toFixed(1)}h`, 20, yPosition);
-      yPosition += 6;
-    }
-
-    if (horasExtraordinarias > 0) {
-      doc.text(`Horas extraordinarias: ${horasExtraordinarias.toFixed(1)}h`, 20, yPosition);
-      yPosition += 6;
-    }
-
-    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition + 2);
+    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, yPosition);
+    yPosition += 6;
+    doc.text('Jornada: L-V 9:00-18:00 (1h almuerzo), Sáb 9:00-13:00', 20, yPosition);
+    yPosition += 6;
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition);
     
     // === AGREGAR MARCA DE AGUA A LA PRIMERA PÁGINA ===
     agregarMarcaAgua();
@@ -526,7 +585,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     // === TABLA ===
     const tableData = actividadesFiltradas.map(act => {
       const esLaborable = esDiaLaborable(act.fecha);
-      const tipoHorario = !esLaborable ? 'Extraordinaria' : 'Normal/Suplementaria';
+      const tipoHorario = !esLaborable ? 'Extra' : 'Normal';
       return [
         `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
         act.tipo,
@@ -614,27 +673,20 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
     doc.text(`Técnico: ${tecnicoNombre}`, 20, 52);
     doc.text(`Periodo: ${formatearFecha(inicio)} – ${formatearFecha(fin)}`, 20, 58);
     
-    const { horasNormales, horasSuplementarias, horasExtraordinarias } = calcularHorasEcuador(actividadesFiltradas);
+    const { horasNormales, horasExtras } = calcularHorasEcuador(actividadesFiltradas);
     let yPosition = 64;
 
     doc.text(`Horas normales: ${horasNormales.toFixed(1)}h`, 20, yPosition);
     yPosition += 6;
-
-    if (horasSuplementarias > 0) {
-      doc.text(`Horas suplementarias: ${horasSuplementarias.toFixed(1)}h`, 20, yPosition);
-      yPosition += 6;
-    }
-
-    if (horasExtraordinarias > 0) {
-      doc.text(`Horas extraordinarias: ${horasExtraordinarias.toFixed(1)}h`, 20, yPosition);
-      yPosition += 6;
-    }
-
-    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition + 2);
+    doc.text(`Horas extras: ${horasExtras.toFixed(1)}h`, 20, yPosition);
+    yPosition += 6;
+    doc.text('Jornada: L-V 9:00-18:00 (1h almuerzo), Sáb 9:00-13:00', 20, yPosition);
+    yPosition += 6;
+    doc.text('Cumple con normativa del Ministerio de Trabajo del Ecuador', 20, yPosition);
     
     const tableData = actividadesFiltradas.map(act => {
       const esLaborable = esDiaLaborable(act.fecha);
-      const tipoHorario = !esLaborable ? 'Extraordinaria' : 'Normal/Suplementaria';
+      const tipoHorario = !esLaborable ? 'Extra' : 'Normal';
       return [
         `${act.fecha}\n${act.horaInicio} - ${act.horaFin}`,
         act.tipo,
@@ -697,7 +749,7 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   };
 });
 
-// === EXCEL CON NORMATIVA ECUATORIANA ===
+// === EXCEL ACTUALIZADO ===
 document.getElementById('btnGenerarExcel').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -710,59 +762,39 @@ document.getElementById('btnGenerarExcel').addEventListener('click', () => {
     return alert('No hay actividades en este rango.');
   }
   
-  // Agrupar por fecha para calcular tipo de hora
-  const actividadesPorFecha = {};
-  actividades.forEach(act => {
-    if (!actividadesPorFecha[act.fecha]) {
-      actividadesPorFecha[act.fecha] = { actividades: [], totalHoras: 0 };
-    }
-    const inicio = new Date(`1970-01-01T${act.horaInicio}`);
-    const fin = new Date(`1970-01-01T${act.horaFin}`);
-    const minutos = (fin - inicio) / (1000 * 60);
-    const horas = minutos / 60;
-    actividadesPorFecha[act.fecha].actividades.push({ ...act, horas });
-    actividadesPorFecha[act.fecha].totalHoras += horas;
-  });
-  
-  const datosExcel = [];
-  Object.keys(actividadesPorFecha).forEach(fecha => {
-    const esLaborable = esDiaLaborable(fecha);
-    const totalHoras = actividadesPorFecha[fecha].totalHoras;
+  const datosExcel = actividades.map(act => {
+    const esLaborable = esDiaLaborable(act.fecha);
+    const tipoDia = getTipoDia(act.fecha);
     
-    actividadesPorFecha[fecha].actividades.forEach(act => {
-      let tipoHorario;
-      if (!esLaborable) {
-        tipoHorario = 'Extraordinaria';
-      } else if (totalHoras <= 8) {
-        tipoHorario = 'Normal';
+    // Determinar si la actividad tiene horas extras
+    let tipoHorario = 'Normal';
+    if (!esLaborable) {
+      tipoHorario = 'Extra (Domingo/Feriado)';
+    } else {
+      const inicioMin = horaAMinutos(act.horaInicio);
+      const finMin = horaAMinutos(act.horaFin);
+      
+      if (tipoDia === 'lunes-viernes') {
+        // Verificar si está fuera del horario normal
+        const esExtra = (inicioMin < 9*60 || finMin > 18*60) && 
+                       !(inicioMin >= 12*60 && finMin <= 13*60);
+        if (esExtra) tipoHorario = 'Extra (Horario extendido)';
       } else {
-        // Verificar si esta actividad contribuye a horas suplementarias
-        const horasAcumuladas = actividadesPorFecha[fecha].actividades
-          .filter(a => a.timestamp <= act.timestamp)
-          .reduce((sum, a) => sum + a.horas, 0);
-        
-        if (horasAcumuladas <= 8) {
-          tipoHorario = 'Normal';
-        } else {
-          const horasAntes = horasAcumuladas - act.horas;
-          if (horasAntes >= 8) {
-            tipoHorario = 'Suplementaria';
-          } else {
-            tipoHorario = 'Mixta (Normal/Suplementaria)';
-          }
+        // Sábado
+        if (inicioMin < 9*60 || finMin > 13*60) {
+          tipoHorario = 'Extra (Horario extendido)';
         }
       }
-      
-      datosExcel.push({
-        Fecha: act.fecha,
-        'Hora Inicio': act.horaInicio,
-        'Hora Fin': act.horaFin,
-        'Horas': act.horas.toFixed(2),
-        'Tipo de Actividad': act.tipo,
-        Descripción: act.descripcion,
-        'Tipo Horario': tipoHorario
-      });
-    });
+    }
+    
+    return {
+      Fecha: act.fecha,
+      'Hora Inicio': act.horaInicio,
+      'Hora Fin': act.horaFin,
+      'Tipo de Actividad': act.tipo,
+      Descripción: act.descripcion,
+      'Tipo Horario': tipoHorario
+    };
   });
   
   const ws = XLSX.utils.json_to_sheet(datosExcel);
