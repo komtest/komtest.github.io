@@ -14,14 +14,59 @@ const database = firebase.database();
 database.goOffline();
 database.goOnline();
 
-// === CONFIGURACIÓN DE FERIADOS ECUADOR 2025 ===
-const FERIADOS_ECUADOR = [
-  '2025-01-01', '2025-02-28', '2025-03-01', '2025-03-28',
-  '2025-05-01', '2025-05-24', '2025-08-10', '2025-10-09',
-  '2025-11-02', '2025-11-03', '2025-12-25'
-];
-
 let tecnicoNombre = '';
+
+// === CÁLCULO DE FERIADOS MÓVILES ===
+function calcularDomingoPascua(year) {
+  // Algoritmo de Meeus/Jones/Butcher
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+function getFeriadosEcuador(year) {
+  const feriadosFijos = [
+    `${year}-01-01`, // Año Nuevo
+    `${year}-05-01`, // Día del Trabajo
+    `${year}-05-24`, // Batalla de Pichincha
+    `${year}-08-10`, // Primer Grito de Independencia
+    `${year}-10-09`, // Independencia de Guayaquil
+    `${year}-11-02`, // Día de Difuntos
+    `${year}-11-03`, // Independencia de Cuenca
+    `${year}-12-25`  // Navidad
+  ];
+  
+  // Calcular feriados móviles
+  const domingoPascua = calcularDomingoPascua(year);
+  const viernesSanto = new Date(domingoPascua);
+  viernesSanto.setDate(domingoPascua.getDate() - 2);
+  
+  const lunesCarnaval = new Date(viernesSanto);
+  lunesCarnaval.setDate(viernesSanto.getDate() - 48); // 48 días antes del Viernes Santo
+  
+  const martesCarnaval = new Date(lunesCarnaval);
+  martesCarnaval.setDate(lunesCarnaval.getDate() + 1);
+  
+  const feriadosMoviles = [
+    lunesCarnaval.toISOString().split('T')[0],
+    martesCarnaval.toISOString().split('T')[0],
+    viernesSanto.toISOString().split('T')[0]
+  ];
+  
+  return [...feriadosFijos, ...feriadosMoviles].sort();
+}
 
 // Verificar si una fecha es día laborable (lunes a sábado, no feriado)
 function esDiaLaborable(fechaISO) {
@@ -33,8 +78,11 @@ function esDiaLaborable(fechaISO) {
     return false;
   }
   
-  // Feriado = no laborable
-  if (FERIADOS_ECUADOR.includes(fechaISO)) {
+  // Verificar si es feriado en el año correspondiente
+  const year = fecha.getFullYear();
+  const feriadosDelAno = getFeriadosEcuador(year);
+  
+  if (feriadosDelAno.includes(fechaISO)) {
     return false;
   }
   
