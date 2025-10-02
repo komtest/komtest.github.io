@@ -1,54 +1,92 @@
 :root {
-  --primary-color: #0d6efd;
-  --secondary-color: #6c757d;
-  --success-color: #198754;
-  --dark-color: #212529;
-  --light-color: #f8f9fa;
-  --bg-body: #f8f9fa;
-  --text-color: #212529;
+  --primary-color: #1e3a8a;
+  --secondary-color: #64748b;
+  --success-color: #16a34a;
+  --warning-color: #eab308;
+  --info-color: #0ea5e9;
+  --dark-color: #1e293b;
+  --light-color: #f8fafc;
+  --bg-body: #f8fafc;
+  --text-color: #1e293b;
   --card-bg: #ffffff;
 }
 
 [data-bs-theme="dark"] {
-  --bg-body: #121212;
-  --text-color: #e9ecef;
-  --card-bg: #1e1e1e;
+  --bg-body: #0f172a;
+  --text-color: #e2e8f0;
+  --card-bg: #1e293b;
 }
 
 body {
   background-color: var(--bg-body);
   color: var(--text-color);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: background-color 0.3s ease;
 }
 
 .card {
   background-color: var(--card-bg);
   color: var(--text-color);
+  border: none;
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
 }
 
 .table {
   color: var(--text-color);
+  vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(30, 58, 138, 0.05);
 }
 
 .table-light {
-  background-color: rgba(0,0,0,0.05) !important;
+  background-color: rgba(241, 245, 249, 0.7) !important;
 }
 
-#reportePDF {
-  background: var(--card-bg);
-  padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
-  color: var(--text-color);
+.stat-card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 
-.stat-card h3 {
-  font-weight: bold;
-  color: var(--primary-color);
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-color: rgba(30, 58, 138, 0.3);
 }
 
-.stat-card p {
-  margin-bottom: 0;
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+}
+
+.bg-gradient-secondary {
+  background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%) !important;
+}
+
+.bg-gradient-dark {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+}
+
+.display-6 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.btn {
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.badge {
+  font-weight: 600;
 }
 
 /* Modo impresión */
@@ -67,5 +105,40 @@ body {
   #reportePDF {
     max-width: 100% !important;
     padding: 10px !important;
+  }
+  .table {
+    font-size: 12px !important;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Responsive mejorado */
+@media (max-width: 768px) {
+  .stat-card {
+    margin-bottom: 15px;
+  }
+  
+  .btn {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+  
+  .display-6 {
+    font-size: 1.2rem;
   }
 }
