@@ -99,10 +99,41 @@ function horaAMinutos(horaStr) {
   return horas * 60 + minutos;
 }
 
+// Función para calcular minutos totales sin solapamientos
+function calcularMinutosSinSolapamiento(intervalos) {
+  if (intervalos.length === 0) return 0;
+  
+  // Ordenar por hora de inicio
+  const sorted = [...intervalos].sort((a, b) => a.inicio - b.inicio);
+  
+  let totalMinutos = 0;
+  let currentInicio = sorted[0].inicio;
+  let currentFin = sorted[0].fin;
+  
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].inicio <= currentFin) {
+      // Solapamiento - extender el intervalo actual
+      currentFin = Math.max(currentFin, sorted[i].fin);
+    } else {
+      // Sin solapamiento - agregar el intervalo actual y empezar uno nuevo
+      totalMinutos += currentFin - currentInicio;
+      currentInicio = sorted[i].inicio;
+      currentFin = sorted[i].fin;
+    }
+  }
+  
+  // Agregar el último intervalo
+  totalMinutos += currentFin - currentInicio;
+  
+  return totalMinutos;
+}
+
+// Calcular horas según jornada laboral ecuatoriana (SIN SOLAPAMIENTOS)
 function calcularHorasEcuador(actividades) {
   let horasNormales = 0;
   let horasExtras = 0;
   
+  // Agrupar actividades por fecha
   const actividadesPorFecha = {};
   actividades.forEach(act => {
     if (!actividadesPorFecha[act.fecha]) {
@@ -111,73 +142,99 @@ function calcularHorasEcuador(actividades) {
     actividadesPorFecha[act.fecha].push(act);
   });
   
+  // Procesar cada fecha
   Object.keys(actividadesPorFecha).forEach(fecha => {
     const actividadesDelDia = actividadesPorFecha[fecha];
     const esLaborable = esDiaLaborable(fecha);
     const tipoDia = getTipoDia(fecha);
     
     if (!esLaborable) {
-      actividadesDelDia.forEach(act => {
-        const inicio = horaAMinutos(act.horaInicio);
-        const fin = horaAMinutos(act.horaFin);
-        const minutos = fin - inicio;
-        horasExtras += minutos / 60;
-      });
+      // Domingo o feriado = todo es hora extra (sin solapamientos)
+      const intervalos = actividadesDelDia.map(act => ({
+        inicio: horaAMinutos(act.horaInicio),
+        fin: horaAMinutos(act.horaFin)
+      }));
+      
+      const minutosTotales = calcularMinutosSinSolapamiento(intervalos);
+      horasExtras += minutosTotales / 60;
     } else {
+      // Día laborable - calcular horas normales y extras sin solapamientos
       let minutosNormales = 0;
       let minutosExtras = 0;
       
-      actividadesDelDia.forEach(act => {
-        const inicioAct = horaAMinutos(act.horaInicio);
-        const finAct = horaAMinutos(act.horaFin);
+      if (tipoDia === 'lunes-viernes') {
+        // Lunes a viernes: 9:00-12:00 y 13:00-18:00 (8 horas normales)
+        const periodosNormales = [
+          { inicio: 9 * 60, fin: 12 * 60 },    // 9:00-12:00
+          { inicio: 13 * 60, fin: 18 * 60 }    // 13:00-18:00
+        ];
         
-        if (tipoDia === 'lunes-viernes') {
-          const periodosNormales = [
-            { inicio: 9 * 60, fin: 12 * 60 },
-            { inicio: 13 * 60, fin: 18 * 60 }
-          ];
-          
-          let actMinutosNormales = 0;
-          let actMinutosExtras = finAct - inicioAct;
-          
-          periodosNormales.forEach(periodo => {
-            const overlapInicio = Math.max(inicioAct, periodo.inicio);
-            const overlapFin = Math.min(finAct, periodo.fin);
+        // Obtener todos los intervalos de actividades
+        const intervalosActividades = actividadesDelDia.map(act => ({
+          inicio: horaAMinutos(act.horaInicio),
+          fin: horaAMinutos(act.horaFin)
+        }));
+        
+        // Calcular minutos en periodos normales (sin solapamientos)
+        periodosNormales.forEach(periodo => {
+          const intersecciones = [];
+          intervalosActividades.forEach(intervalo => {
+            const overlapInicio = Math.max(intervalo.inicio, periodo.inicio);
+            const overlapFin = Math.min(intervalo.fin, periodo.fin);
             if (overlapFin > overlapInicio) {
-              const overlapMinutos = overlapFin - overlapInicio;
-              actMinutosNormales += overlapMinutos;
-              actMinutosExtras -= overlapMinutos;
+              intersecciones.push({ inicio: overlapInicio, fin: overlapFin });
             }
           });
           
-          minutosNormales += actMinutosNormales;
-          minutosExtras += Math.max(0, actMinutosExtras);
-        } else {
-          const inicioNormal = 9 * 60;
-          const finNormal = 13 * 60;
-          
-          const overlapInicio = Math.max(inicioAct, inicioNormal);
-          const overlapFin = Math.min(finAct, finNormal);
-          const minutosNormalesAct = Math.max(0, overlapFin - overlapInicio);
-          const minutosExtrasAct = (finAct - inicioAct) - minutosNormalesAct;
-          
-          minutosNormales += minutosNormalesAct;
-          minutosExtras += Math.max(0, minutosExtrasAct);
-        }
-      });
-      
-      if (tipoDia === 'lunes-viernes') {
-        const maxNormales = 8 * 60;
-        if (minutosNormales > maxNormales) {
-          minutosExtras += minutosNormales - maxNormales;
-          minutosNormales = maxNormales;
+          if (intersecciones.length > 0) {
+            const minutosNormalesPeriodo = calcularMinutosSinSolapamiento(intersecciones);
+            minutosNormales += minutosNormalesPeriodo;
+          }
+        });
+        
+        // Calcular minutos extras (todo lo que no está en periodos normales)
+        const minutosTotalesActividades = calcularMinutosSinSolapamiento(intervalosActividades);
+        minutosExtras = minutosTotalesActividades - minutosNormales;
+        
+        // Aplicar límite de 8 horas normales
+        if (minutosNormales > 8 * 60) {
+          minutosExtras += minutosNormales - 8 * 60;
+          minutosNormales = 8 * 60;
         }
       } else {
-        const maxNormales = 4 * 60;
-        if (minutosNormales > maxNormales) {
-          minutosExtras += minutosNormales - maxNormales;
-          minutosNormales = maxNormales;
+        // Sábado: 9:00-13:00 (4 horas normales)
+        const inicioNormal = 9 * 60;
+        const finNormal = 13 * 60;
+        
+        const intervalosActividades = actividadesDelDia.map(act => ({
+          inicio: horaAMinutos(act.horaInicio),
+          fin: horaAMinutos(act.horaFin)
+        }));
+        
+        // Calcular intersección con horario normal
+        const interseccionesNormales = [];
+        intervalosActividades.forEach(intervalo => {
+          const overlapInicio = Math.max(intervalo.inicio, inicioNormal);
+          const overlapFin = Math.min(intervalo.fin, finNormal);
+          if (overlapFin > overlapInicio) {
+            interseccionesNormales.push({ inicio: overlapInicio, fin: overlapFin });
+          }
+        });
+        
+        const minutosNormalesSabado = interseccionesNormales.length > 0 ? 
+          calcularMinutosSinSolapamiento(interseccionesNormales) : 0;
+        
+        const minutosTotalesSabado = calcularMinutosSinSolapamiento(intervalosActividades);
+        const minutosExtrasSabado = minutosTotalesSabado - minutosNormalesSabado;
+        
+        // Aplicar límite de 4 horas normales
+        if (minutosNormalesSabado > 4 * 60) {
+          minutosExtrasSabado += minutosNormalesSabado - 4 * 60;
+          minutosNormalesSabado = 4 * 60;
         }
+        
+        minutosNormales = minutosNormalesSabado;
+        minutosExtras = minutosExtrasSabado;
       }
       
       horasNormales += minutosNormales / 60;
@@ -263,7 +320,9 @@ document.getElementById('activityForm').addEventListener('submit', function(e) {
     return alert('La hora de inicio debe ser menor que la hora de fin.');
   }
   if (diffHoras > 12) {
-    return alert('La jornada no puede exceder 12 horas.');
+    if (!confirm(`Esta actividad dura ${diffHoras.toFixed(1)} horas. ¿Está seguro que desea registrarla?`)) {
+      return;
+    }
   }
   
   const actividad = {
