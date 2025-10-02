@@ -3,81 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bitácora Komtest Pro</title>
+  <title>Diesel Injection Services - Bitácora Técnica</title>
   
   <!-- PWA Essential -->
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-  <meta name="theme-color" content="#0d6efd">
+  <meta name="theme-color" content="#1e3a8a">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="preload" as="image" href="/logo-komtest.png">
   
+  <!-- Bootstrap 5.3 + Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-light">
   <!-- Modal de inicio -->
   <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title">Bienvenido, Técnico</h5>
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-gradient-primary text-white">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-person-badge me-2"></i>Bienvenido, Técnico
+          </h5>
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label for="nombreTecnicoInput" class="form-label">Nombre completo</label>
-            <input type="text" class="form-control" id="nombreTecnicoInput" placeholder="Ej: Juan Pérez" required>
+            <label for="nombreTecnicoInput" class="form-label fw-semibold">Nombre completo</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person"></i></span>
+              <input type="text" class="form-control" id="nombreTecnicoInput" placeholder="Ej: Juan Pérez" required>
+            </div>
           </div>
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="darkModeToggle">
-            <label class="form-check-label" for="darkModeToggle">Modo oscuro</label>
+            <label class="form-check-label" for="darkModeToggle">
+              <i class="bi bi-moon-stars me-1"></i>Modo oscuro
+            </label>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" id="btnIniciar">Iniciar Sesión</button>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-primary btn-lg w-100" id="btnIniciar">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+          </button>
         </div>
       </div>
     </div>
   </div>
 
   <div class="container py-4" id="appContainer" style="display:none;">
-    <header class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <h1 class="h4 fw-bold text-primary">Bitácora de Actividades - Komtest</h1>
-        <p class="mb-0">Técnico: <strong id="nombreMostrado"></strong></p>
+    <!-- Header profesional -->
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 p-3 bg-white rounded-3 shadow-sm">
+      <div class="text-center text-md-start mb-3 mb-md-0">
+        <h1 class="h4 fw-bold text-primary">
+          <i class="bi bi-journal-text me-2"></i>Bitácora de Actividades Técnicas
+        </h1>
+        <p class="mb-0 text-muted">
+          <i class="bi bi-person-circle me-1"></i>Técnico: <strong id="nombreMostrado" class="text-dark"></strong>
+        </p>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" id="btnRespaldo">📥 Respaldo JSON</button>
+        <button class="btn btn-outline-secondary" id="btnRespaldo">
+          <i class="bi bi-download me-1"></i>Respaldo JSON
+        </button>
       </div>
     </header>
 
-    <section class="card mb-4 shadow-sm">
-      <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Registrar Actividad</h5>
+    <!-- Sección de registro -->
+    <section class="card mb-4 shadow-sm border-0">
+      <div class="card-header bg-gradient-primary text-white">
+        <h5 class="mb-0 fw-bold">
+          <i class="bi bi-plus-circle me-2"></i>Registrar Nueva Actividad
+        </h5>
       </div>
       <div class="card-body">
         <form id="activityForm">
           <input type="hidden" id="editId">
-          <div class="row">
-            <div class="col-md-4 mb-3">
-              <label for="fecha" class="form-label">Fecha</label>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="fecha" class="form-label fw-semibold">Fecha</label>
               <input type="date" class="form-control" id="fecha" required>
             </div>
-            <div class="col-md-4 mb-3">
-              <label for="horaInicio" class="form-label">Hora Inicio</label>
+            <div class="col-md-4">
+              <label for="horaInicio" class="form-label fw-semibold">Hora Inicio</label>
               <input type="time" class="form-control" id="horaInicio" required>
             </div>
-            <div class="col-md-4 mb-3">
-              <label for="horaFin" class="form-label">Hora Fin</label>
+            <div class="col-md-4">
+              <label for="horaFin" class="form-label fw-semibold">Hora Fin</label>
               <input type="time" class="form-control" id="horaFin" required>
             </div>
           </div>
-          <div class="mb-3">
-            <label for="tipo" class="form-label">Tipo de Actividad</label>
+          <div class="mb-3 mt-3">
+            <label for="tipo" class="form-label fw-semibold">Tipo de Actividad</label>
             <select class="form-select" id="tipo" required>
-              <option value="">Seleccione...</option>
+              <option value="">Seleccione el tipo de actividad...</option>
               <option value="Soporte virtual">Soporte virtual para asistencia de fallas</option>
               <option value="Soporte presencial">Soporte presencial para asistencia de fallas</option>
               <option value="Reparación electrónica">Reparaciones electrónicas de dispositivos</option>
@@ -86,46 +107,61 @@
             </select>
           </div>
           <div class="mb-3">
-            <label for="descripcion" class="form-label">Descripción detallada</label>
+            <label for="descripcion" class="form-label fw-semibold">Descripción detallada</label>
             <textarea class="form-control" id="descripcion" rows="3" placeholder="Ej: Diagnóstico remoto de falla en banco K-300..." required></textarea>
           </div>
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success" id="btnGuardar">Agregar Actividad</button>
-            <button type="button" class="btn btn-outline-secondary d-none" id="btnCancelarEdicion">Cancelar</button>
+            <button type="submit" class="btn btn-success btn-lg flex-grow-1" id="btnGuardar">
+              <i class="bi bi-save me-2"></i>Agregar Actividad
+            </button>
+            <button type="button" class="btn btn-outline-secondary d-none" id="btnCancelarEdicion">
+              <i class="bi bi-x-circle me-1"></i>Cancelar
+            </button>
           </div>
         </form>
       </div>
     </section>
 
-    <section class="card mb-4 shadow-sm">
-      <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0">Generar Informe</h5>
+    <!-- Generar informe -->
+    <section class="card mb-4 shadow-sm border-0">
+      <div class="card-header bg-gradient-secondary text-white">
+        <h5 class="mb-0 fw-bold">
+          <i class="bi bi-file-earmark-text me-2"></i>Generar Informe
+        </h5>
       </div>
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-5">
-            <label for="fechaInicio" class="form-label">Rango de Fechas</label>
+            <label for="fechaInicio" class="form-label fw-semibold">Rango de Fechas</label>
             <input type="date" class="form-control" id="fechaInicio">
             <input type="date" class="form-control mt-2" id="fechaFin">
           </div>
           <div class="col-md-7 d-flex align-items-end gap-2">
-            <button id="btnGenerarPDF" class="btn btn-primary">📄 Generar PDF</button>
-            <button id="btnGenerarExcel" class="btn btn-success">📊 Exportar Excel</button>
-            <button id="btnVerReporte" class="btn btn-outline-secondary">👁️ Ver Reporte</button>
+            <button id="btnGenerarPDF" class="btn btn-primary w-100">
+              <i class="bi bi-file-pdf me-2"></i>Generar PDF
+            </button>
+            <button id="btnGenerarExcel" class="btn btn-success w-100">
+              <i class="bi bi-file-earmark-spreadsheet me-2"></i>Exportar Excel
+            </button>
+            <button id="btnVerReporte" class="btn btn-outline-secondary w-100">
+              <i class="bi bi-eye me-1"></i>Ver Reporte
+            </button>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Filtros avanzados -->
-    <section class="card mb-4 shadow-sm d-none" id="filtrosSection">
+    <section class="card mb-4 shadow-sm border-0 d-none" id="filtrosSection">
       <div class="card-header bg-light">
-        <h6 class="mb-0">Filtros Avanzados</h6>
+        <h6 class="mb-0 fw-bold text-primary">
+          <i class="bi bi-funnel me-2"></i>Filtros Avanzados
+        </h6>
       </div>
       <div class="card-body">
         <div class="row g-2">
           <div class="col-md-4">
-            <label for="filtroTipo" class="form-label">Tipo de Actividad</label>
+            <label for="filtroTipo" class="form-label fw-semibold">Tipo de Actividad</label>
             <select class="form-select" id="filtroTipo">
               <option value="">Todos los tipos</option>
               <option value="Soporte virtual">Soporte virtual</option>
@@ -136,51 +172,62 @@
             </select>
           </div>
           <div class="col-md-5">
-            <label for="filtroDescripcion" class="form-label">Buscar en descripción</label>
+            <label for="filtroDescripcion" class="form-label fw-semibold">Buscar en descripción</label>
             <input type="text" class="form-control" id="filtroDescripcion" placeholder="Palabras clave...">
           </div>
           <div class="col-md-3">
-            <button class="btn btn-outline-secondary w-100 mt-4" id="btnLimpiarFiltros">Limpiar</button>
+            <button class="btn btn-outline-secondary w-100 mt-4" id="btnLimpiarFiltros">
+              <i class="bi bi-eraser me-1"></i>Limpiar
+            </button>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Estadísticas -->
-    <section class="card mb-4 shadow-sm d-none" id="estadisticasSection">
-      <div class="card-header bg-dark text-white">
-        <h5 class="mb-0">Estadísticas del Técnico (Ecuador - Ministerio de Trabajo)</h5>
+    <!-- Estadísticas profesionales -->
+    <section class="card mb-4 shadow-sm border-0 d-none" id="estadisticasSection">
+      <div class="card-header bg-gradient-dark text-white">
+        <h5 class="mb-0 fw-bold">
+          <i class="bi bi-bar-chart-line me-2"></i>Estadísticas del Técnico - Ecuador
+        </h5>
       </div>
       <div class="card-body">
-        <div class="row text-center">
-          <div class="col-md-3 mb-3">
-            <div class="stat-card">
-              <h3 id="totalActividades">0</h3>
-              <p class="text-muted">Actividades</p>
+        <div class="row text-center g-3">
+          <div class="col-md-2">
+            <div class="stat-card p-3 bg-light rounded-3">
+              <div class="display-6 text-primary fw-bold" id="totalActividades">0</div>
+              <div class="text-muted small">Actividades</div>
             </div>
           </div>
-          <div class="col-md-4 mb-3">
-            <div class="stat-card">
-              <h3 id="totalHoras">0h</h3>
-              <p class="text-muted">Horas (Normales + Suplementarias + Extraordinarias)</p>
+          <div class="col-md-3">
+            <div class="stat-card p-3 bg-light rounded-3">
+              <div class="display-6 text-success fw-bold" id="totalHorasNormales">0h</div>
+              <div class="text-muted small">Horas Normales</div>
             </div>
           </div>
-          <div class="col-md-3 mb-3">
-            <div class="stat-card">
-              <h3 id="promedioDiario">0h</h3>
-              <p class="text-muted">Promedio diario laborable</p>
+          <div class="col-md-3">
+            <div class="stat-card p-3 bg-light rounded-3">
+              <div class="display-6 text-warning fw-bold" id="totalHorasExtras">0h</div>
+              <div class="text-muted small">Horas Extras</div>
             </div>
           </div>
-          <div class="col-md-2 mb-3">
-            <div class="stat-card">
-              <h3 id="tipoPrincipal">-</h3>
-              <p class="text-muted">Tipo principal</p>
+          <div class="col-md-2">
+            <div class="stat-card p-3 bg-light rounded-3">
+              <div class="display-6 text-info fw-bold" id="promedioTotal">0h</div>
+              <div class="text-muted small">Prom. Total</div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="stat-card p-3 bg-light rounded-3">
+              <div class="display-6 text-secondary fw-bold" id="tipoPrincipal">-</div>
+              <div class="text-muted small">Tipo Principal</div>
             </div>
           </div>
         </div>
         <div class="row mt-3 d-none" id="diasNoLaborablesRow">
           <div class="col-12">
-            <div class="alert alert-warning alert-sm mb-0">
+            <div class="alert alert-warning alert-sm mb-0 rounded-3">
+              <i class="bi bi-exclamation-triangle me-2"></i>
               <strong id="diasNoLaborables"></strong>
             </div>
           </div>
@@ -190,27 +237,31 @@
 
     <!-- Tabla de actividades -->
     <section id="reporteContainer" class="d-none">
-      <div id="reportePDF" class="card shadow-sm">
-        <div class="card-header bg-dark text-white text-center">
-          <h4>Informe de Actividades - Banco de Pruebas Komtest</h4>
-          <p id="rangoFechas" class="mb-0">Del <span id="fechaInicioReporte"></span> al <span id="fechaFinReporte"></span></p>
+      <div id="reportePDF" class="card shadow-sm border-0">
+        <div class="card-header bg-gradient-dark text-white text-center py-3">
+          <h4 class="mb-1">Informe de Actividades Técnicas</h4>
+          <p id="rangoFechas" class="mb-0 text-light">
+            Del <span id="fechaInicioReporte"></span> al <span id="fechaFinReporte"></span>
+          </p>
         </div>
         <div class="card-body">
-          <table class="table table-bordered">
-            <thead class="table-light">
-              <tr>
-                <th>Fecha y Horario</th>
-                <th>Tipo</th>
-                <th>Descripción</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="tablaActividades"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha y Horario</th>
+                  <th>Tipo</th>
+                  <th>Descripción</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaActividades"></tbody>
+            </table>
+          </div>
           <div class="mt-4 text-end">
-            <p>Fecha: <span id="fechaFirma"></span></p>
-            <p>Firma: _________________________</p>
-            <p>Nombre: <strong id="nombreEnReporte"></strong></p>
+            <p class="mb-1">Fecha: <span id="fechaFirma"></span></p>
+            <p class="mb-1">Firma: _________________________</p>
+            <p class="mb-0">Nombre: <strong id="nombreEnReporte"></strong></p>
           </div>
         </div>
       </div>
@@ -218,7 +269,9 @@
   </div>
 
   <footer class="text-center text-muted py-3 mt-4 border-top">
-    <small>© 2025 Komtest - Sistemas de Prueba Diesel y Gasolina | v2.1</small>
+    <small>
+      © 2025 Diesel Injection Services - Especialistas en Sistemas de Inyección CRDi | v3.0
+    </small>
   </footer>
 
   <!-- Librerías -->
