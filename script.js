@@ -18,7 +18,6 @@ let tecnicoNombre = '';
 
 // === CÁLCULO DE FERIADOS MÓVILES ===
 function calcularDomingoPascua(year) {
-  // Algoritmo de Meeus/Jones/Butcher
   const a = year % 19;
   const b = Math.floor(year / 100);
   const c = year % 100;
@@ -38,17 +37,16 @@ function calcularDomingoPascua(year) {
 
 function getFeriadosEcuador(year) {
   const feriadosFijos = [
-    `${year}-01-01`, // Año Nuevo
-    `${year}-05-01`, // Día del Trabajo
-    `${year}-05-24`, // Batalla de Pichincha
-    `${year}-08-10`, // Primer Grito de Independencia
-    `${year}-10-09`, // Independencia de Guayaquil
-    `${year}-11-02`, // Día de Difuntos
-    `${year}-11-03`, // Independencia de Cuenca
-    `${year}-12-25`  // Navidad
+    `${year}-01-01`,
+    `${year}-05-01`,
+    `${year}-05-24`,
+    `${year}-08-10`,
+    `${year}-10-09`,
+    `${year}-11-02`,
+    `${year}-11-03`,
+    `${year}-12-25`
   ];
   
-  // Calcular feriados móviles
   const domingoPascua = calcularDomingoPascua(year);
   const viernesSanto = new Date(domingoPascua);
   viernesSanto.setDate(domingoPascua.getDate() - 2);
@@ -68,17 +66,14 @@ function getFeriadosEcuador(year) {
   return [...feriadosFijos, ...feriadosMoviles].sort();
 }
 
-// Verificar si una fecha es día laborable (lunes a sábado, no feriado)
 function esDiaLaborable(fechaISO) {
   const fecha = new Date(fechaISO);
-  const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+  const diaSemana = fecha.getDay();
   
-  // Domingo (0) = no laborable
   if (diaSemana === 0) {
     return false;
   }
   
-  // Verificar si es feriado en el año correspondiente
   const year = fecha.getFullYear();
   const feriadosDelAno = getFeriadosEcuador(year);
   
@@ -89,29 +84,25 @@ function esDiaLaborable(fechaISO) {
   return true;
 }
 
-// Obtener el tipo de día laborable
 function getTipoDia(fechaISO) {
   const fecha = new Date(fechaISO);
-  const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+  const diaSemana = fecha.getDay();
   
   if (diaSemana === 6) {
-    return 'sabado'; // Sábado
+    return 'sabado';
   }
-  return 'lunes-viernes'; // Lunes a viernes
+  return 'lunes-viernes';
 }
 
-// Convertir hora a minutos desde medianoche
 function horaAMinutos(horaStr) {
   const [horas, minutos] = horaStr.split(':').map(Number);
   return horas * 60 + minutos;
 }
 
-// Calcular horas según jornada laboral ecuatoriana
 function calcularHorasEcuador(actividades) {
   let horasNormales = 0;
   let horasExtras = 0;
   
-  // Agrupar actividades por fecha
   const actividadesPorFecha = {};
   actividades.forEach(act => {
     if (!actividadesPorFecha[act.fecha]) {
@@ -120,14 +111,12 @@ function calcularHorasEcuador(actividades) {
     actividadesPorFecha[act.fecha].push(act);
   });
   
-  // Procesar cada fecha
   Object.keys(actividadesPorFecha).forEach(fecha => {
     const actividadesDelDia = actividadesPorFecha[fecha];
     const esLaborable = esDiaLaborable(fecha);
     const tipoDia = getTipoDia(fecha);
     
     if (!esLaborable) {
-      // Domingo o feriado = todo es hora extra
       actividadesDelDia.forEach(act => {
         const inicio = horaAMinutos(act.horaInicio);
         const fin = horaAMinutos(act.horaFin);
@@ -135,7 +124,6 @@ function calcularHorasEcuador(actividades) {
         horasExtras += minutos / 60;
       });
     } else {
-      // Día laborable - calcular horas normales y extras
       let minutosNormales = 0;
       let minutosExtras = 0;
       
@@ -144,10 +132,9 @@ function calcularHorasEcuador(actividades) {
         const finAct = horaAMinutos(act.horaFin);
         
         if (tipoDia === 'lunes-viernes') {
-          // Lunes a viernes: 9:00-12:00 y 13:00-18:00 (8 horas normales)
           const periodosNormales = [
-            { inicio: 9 * 60, fin: 12 * 60 },    // 9:00-12:00
-            { inicio: 13 * 60, fin: 18 * 60 }    // 13:00-18:00
+            { inicio: 9 * 60, fin: 12 * 60 },
+            { inicio: 13 * 60, fin: 18 * 60 }
           ];
           
           let actMinutosNormales = 0;
@@ -166,7 +153,6 @@ function calcularHorasEcuador(actividades) {
           minutosNormales += actMinutosNormales;
           minutosExtras += Math.max(0, actMinutosExtras);
         } else {
-          // Sábado: 9:00-13:00 (4 horas normales)
           const inicioNormal = 9 * 60;
           const finNormal = 13 * 60;
           
@@ -180,7 +166,6 @@ function calcularHorasEcuador(actividades) {
         }
       });
       
-      // Aplicar límites máximos
       if (tipoDia === 'lunes-viernes') {
         const maxNormales = 8 * 60;
         if (minutosNormales > maxNormales) {
@@ -397,7 +382,7 @@ function renderActividades(fechaInicio = null, fechaFin = null) {
       <td>${act.fecha}${badge}<br><small>${act.horaInicio} - ${act.horaFin}</small></td>
       <td>${act.tipo}</td>
       <td>${act.descripcion}</td>
-      <td>
+      <td class="text-center">
         <button class="btn btn-sm btn-outline-primary me-1 edit-btn" data-id="${act.id}">✏️</button>
         <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${act.id}">🗑️</button>
       </td>
@@ -444,84 +429,61 @@ function eliminarActividad(id) {
   actualizarEstadisticas();
 }
 
-// ... (todo el código anterior hasta la función actualizarEstadisticas)
-
-// === ESTADÍSTICAS PROFESIONALES ACTUALIZADAS ===
+// === ESTADÍSTICAS PROFESIONALES SIN ERRORES ===
 function actualizarEstadisticas() {
   const actividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   if (actividades.length === 0) return;
   
-  // Total actividades
-  document.getElementById('totalActividades').textContent = actividades.length;
+  // Verificar que los elementos existan antes de acceder
+  const totalActividadesEl = document.getElementById('totalActividades');
+  const totalHorasNormalesEl = document.getElementById('totalHorasNormales');
+  const totalHorasExtrasEl = document.getElementById('totalHorasExtras');
+  const promedioTotalEl = document.getElementById('promedioTotal');
+  const tipoPrincipalEl = document.getElementById('tipoPrincipal');
+  const diasNoLaborablesEl = document.getElementById('diasNoLaborables');
+  const diasNoLaborablesRowEl = document.getElementById('diasNoLaborablesRow');
   
-  // Calcular horas según normativa
+  if (!totalActividadesEl || !totalHorasNormalesEl || !totalHorasExtrasEl || 
+      !promedioTotalEl || !tipoPrincipalEl || !diasNoLaborablesEl || !diasNoLaborablesRowEl) {
+    console.warn("Elementos de estadísticas no encontrados");
+    return;
+  }
+  
+  totalActividadesEl.textContent = actividades.length;
+  
   const { horasNormales, horasExtras } = calcularHorasEcuador(actividades);
-  const horasTotales = horasNormales + horasExtras;
+  totalHorasNormalesEl.textContent = `${horasNormales.toFixed(1)}h`;
+  totalHorasExtrasEl.textContent = `${horasExtras.toFixed(1)}h`;
   
-  // Mostrar horas separadas
-  document.getElementById('totalHorasNormales').textContent = `${horasNormales.toFixed(1)}h`;
-  document.getElementById('totalHorasExtras').textContent = `${horasExtras.toFixed(1)}h`;
-  
-  // Días laborables
   const diasLaborables = [...new Set(
     actividades
       .filter(act => esDiaLaborable(act.fecha))
       .map(a => a.fecha)
   )];
   
-  // Promedios
+  const horasTotales = horasNormales + horasExtras;
   const promedioTotal = diasLaborables.length > 0 ? 
     (horasTotales / diasLaborables.length).toFixed(1) : 0;
   
-  document.getElementById('promedioTotal').textContent = `${promedioTotal}h`;
-  
-  // Tipo principal
-  const tipos = {};
-  actividades.forEach(act => {
-    tipos[act.tipo] = (tipos[act.tipo] || 0) + 1;
-  });
-  const tipoPrincipal = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, '');
-  document.getElementById('tipoPrincipal').textContent = tipoPrincipal;
-  
-  // Días no laborables
-  const diasNoLaborables = actividades.filter(act => !esDiaLaborable(act.fecha));
-  if (diasNoLaborables.length > 0) {
-    const diasTexto = [...new Set(diasNoLaborables.map(d => d.fecha))].join(', ');
-    document.getElementById('diasNoLaborables').textContent = 
-      `Días no laborables: ${diasTexto}`;
-    document.getElementById('diasNoLaborablesRow').classList.remove('d-none');
-  } else {
-    document.getElementById('diasNoLaborablesRow').classList.add('d-none');
-  }
-}
-
-// ... (resto del código sin cambios)
-  
-  // ✅ PROMEDIO CORREGIDO: Horas totales / días laborables
-  const promedioDiario = diasLaborables.length > 0 ? 
-    (horasTotales / diasLaborables.length).toFixed(1) : 0;
-  
-  document.getElementById('promedioDiario').textContent = `${promedioDiario}h`;
+  promedioTotalEl.textContent = `${promedioTotal}h`;
   
   const tipos = {};
   actividades.forEach(act => {
     tipos[act.tipo] = (tipos[act.tipo] || 0) + 1;
   });
   const tipoPrincipal = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, '');
-  document.getElementById('tipoPrincipal').textContent = tipoPrincipal;
+  tipoPrincipalEl.textContent = tipoPrincipal;
   
   const diasNoLaborables = actividades.filter(act => !esDiaLaborable(act.fecha));
   if (diasNoLaborables.length > 0) {
     const diasTexto = [...new Set(diasNoLaborables.map(d => d.fecha))].join(', ');
-    document.getElementById('diasNoLaborables').textContent = 
-      `Días no laborables: ${diasTexto}`;
-    document.getElementById('diasNoLaborablesRow').classList.remove('d-none');
+    diasNoLaborablesEl.textContent = `Días no laborables: ${diasTexto}`;
+    diasNoLaborablesRowEl.classList.remove('d-none');
   } else {
-    document.getElementById('diasNoLaborablesRow').classList.add('d-none');
+    diasNoLaborablesRowEl.classList.add('d-none');
   }
 }
 
-// === VER REPORTE ===
 document.getElementById('btnVerReporte').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -533,7 +495,6 @@ document.getElementById('btnVerReporte').addEventListener('click', () => {
   document.getElementById('reporteContainer').classList.remove('d-none');
 });
 
-// === FILTROS ===
 document.getElementById('filtroTipo')?.addEventListener('change', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -554,7 +515,6 @@ document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
   renderActividades(inicio || null, fin || null);
 });
 
-// === PDF ===
 document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -571,9 +531,9 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  const primaryColor = [13, 110, 253];
-  const darkColor = [33, 37, 41];
-  const lightGray = [240, 240, 240];
+  const primaryColor = [30, 58, 138];
+  const darkColor = [30, 41, 59];
+  const lightGray = [241, 245, 249];
 
   const logoUrl = '/logo-komtest.png';
   const img = new Image();
@@ -589,20 +549,15 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
       const logoHeight = (img.height * logoWidth) / img.width;
       const x = (pageWidth - logoWidth) / 2;
       const y = (pageHeight - logoHeight) / 2;
-      const watermarkCanvas = createWatermarkCanvas(img, logoWidth, logoHeight);
-      doc.addImage(watermarkCanvas, 'PNG', x, y, logoWidth, logoHeight);
-      doc.restoreGraphicsState();
-    }
-    
-    function createWatermarkCanvas(image, width, height) {
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = logoWidth;
+      canvas.height = logoHeight;
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, logoWidth, logoHeight);
       ctx.globalAlpha = 0.08;
-      ctx.drawImage(image, 0, 0, width, height);
-      return canvas.toDataURL('image/png');
+      ctx.drawImage(img, 0, 0, logoWidth, logoHeight);
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, logoWidth, logoHeight);
+      doc.restoreGraphicsState();
     }
     
     doc.setFontSize(22);
@@ -791,7 +746,6 @@ document.getElementById('btnGenerarPDF').addEventListener('click', () => {
   };
 });
 
-// === EXCEL ===
 document.getElementById('btnGenerarExcel').addEventListener('click', () => {
   const inicio = document.getElementById('fechaInicio').value;
   const fin = document.getElementById('fechaFin').value;
@@ -829,7 +783,7 @@ document.getElementById('btnGenerarExcel').addEventListener('click', () => {
       'Hora Inicio': act.horaInicio,
       'Hora Fin': act.horaFin,
       'Tipo de Actividad': act.tipo,
-      Descripción: act.descripcion,
+      Descripcion: act.descripcion,
       'Tipo Horario': tipoHorario
     };
   });
@@ -845,7 +799,6 @@ function formatearFecha(fechaISO) {
   return `${d}/${m}/${y}`;
 }
 
-// === RESPALDO JSON ===
 document.getElementById('btnRespaldo').addEventListener('click', () => {
   const misActividades = todasLasActividades.filter(act => act.tecnico === tecnicoNombre);
   const dataStr = JSON.stringify(misActividades, null, 2);
@@ -857,7 +810,6 @@ document.getElementById('btnRespaldo').addEventListener('click', () => {
   linkElement.click();
 });
 
-// === Solicitar permisos de notificación ===
 if ('Notification' in window) {
   Notification.requestPermission();
 }
